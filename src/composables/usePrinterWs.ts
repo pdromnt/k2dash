@@ -160,12 +160,16 @@ function parseStatus(msg: Record<string, unknown>) {
   // is in an error state. The native firmware uses {errcode, value};
   // CrealityPrint's webview-shaped relay uses {key, value}. Handle
   // both. If the printer reports state != 'error', clear any stale
-  // error from a previous frame.
+  // error from a previous frame. When a new (different) code
+  // arrives, reset the dismiss flag so the banner re-appears.
   if (msg.err && typeof msg.err === 'object') {
     const e = msg.err as Record<string, unknown>
     const code = Number(e.errcode ?? e.key ?? 0)
     store.errorCode = code
     store.errorMessage = typeof e.value === 'string' ? e.value : ''
+    if (code !== 0 && code !== store.dismissedErrorCode) {
+      store.dismissedErrorCode = 0
+    }
   } else if (store.state !== 'error') {
     store.errorCode = 0
     store.errorMessage = ''

@@ -2,7 +2,7 @@
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinter } from '@/composables/usePrinter'
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { fmtDur, fmtFilamentMeters, splitPath } from '@/utils/format'
+import { fmtDur, fmtFilamentMeters, printerError, splitPath } from '@/utils/format'
 
 const printer = usePrinterStore()
 usePrinter() // starts HTTP polling
@@ -73,6 +73,17 @@ const stateBadge = (s: string) => {
 
 const hasJob = computed(() => printer.isPrinting || printer.isPaused)
 
+// Printer error: look up the code in our extracted translation map.
+// Hidden if the user has dismissed THIS code (a new error re-shows).
+const errorInfo = computed(() => printer.errorCode !== 0 ? printerError(printer.errorCode) : null)
+const errorVisible = computed(() =>
+  errorInfo.value !== null
+  && printer.errorCode !== printer.dismissedErrorCode
+)
+function dismissError() {
+  printer.dismissedErrorCode = printer.errorCode
+}
+
 // Three-way temperature column. Data-driven so the three rows stay in sync.
 const heaters = computed(() => [
   { label: 'Extruder', current: printer.extruderTemp, target: printer.extruderTarget, muted: false },
@@ -92,20 +103,41 @@ const heaters = computed(() => [
     </div>
 
     <!-- Error banner: shown when the K2 Plus reports a non-zero errcode.
-         The message text comes from the firmware (localized). k2-dash
-         doesn't have a translation map, so we show the code + raw text
-         if the firmware provides one. -->
+         Lookup the code in our extracted translation map (see
+         utils/printer-errors.json). The user can manually dismiss;
+         a NEW error (different code) re-shows the banner. -->
     <div
-      v-if="printer.errorCode !== 0"
+      v-if="errorVisible"
       class="shrink-0 mb-4 px-4 py-2.5 rounded-lg bg-[rgba(224,85,85,0.12)] border border-[rgba(224,85,85,0.3)] text-[var(--red)]"
     >
       <div class="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider">
         <span class="status-dot bg-[var(--red)] shrink-0" style="width:6px;height:6px"></span>
-        <span>Printer error · code {{ printer.errorCode }}</span>
+        <span>
+          Printer error
+          <span v-if="errorInfo?.code" class="ml-1.5 opacity-80">· {{ errorInfo.code }}</span>
+          <span v-else class="ml-1.5 opacity-80">· code {{ printer.errorCode }}</span>
+        </span>
+        <button
+          class="ml-auto opacity-70 hover:opacity-100 transition-opacity p-1 -m-1"
+          aria-label="Dismiss error"
+          title="Dismiss"
+          @click="dismissError"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <div v-if="printer.errorMessage" class="text-[12px] text-[var(--text-dim)] mt-1.5 break-words">
-        {{ printer.errorMessage }}
+      <div class="text-[12px] text-[var(--text-dim)] mt-1.5 break-words">
+        {{ errorInfo?.message || printer.errorMessage || 'Unknown error — check the printer display.' }}
       </div>
+      <a
+        v-if="errorInfo?.wiki"
+        :href="errorInfo.wiki"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-block mt-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--red)] underline"
+      >Troubleshooting wiki →</a>
     </div>
 
     <div class="flex-1 flex flex-col justify-center gap-5 max-sm:gap-4 lg:gap-8">

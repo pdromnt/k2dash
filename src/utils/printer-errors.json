@@ -1,0 +1,2300 @@
+{
+  "0": {
+    "code": null,
+    "level": null,
+    "message": "An unknown error was detected in printing",
+    "wiki": null
+  },
+  "1": {
+    "code": "1",
+    "level": 2,
+    "message": "Motor drive abnormality",
+    "wiki": null
+  },
+  "2": {
+    "code": "2",
+    "level": 2,
+    "message": "internal error",
+    "wiki": null
+  },
+  "3": {
+    "code": "3",
+    "level": 2,
+    "message": "Communication abnormality",
+    "wiki": null
+  },
+  "4": {
+    "code": "4",
+    "level": 2,
+    "message": "Not heating as expected",
+    "wiki": null
+  },
+  "5": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "6": {
+    "code": "6",
+    "level": 2,
+    "message": "Extruder abnormality",
+    "wiki": null
+  },
+  "7": {
+    "code": "7",
+    "level": 2,
+    "message": "Print file coordinates are abnormal",
+    "wiki": null
+  },
+  "8": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "9": {
+    "code": "9",
+    "level": 2,
+    "message": "Chatter optimization sensor abnormality",
+    "wiki": null
+  },
+  "10": {
+    "code": "10",
+    "level": 2,
+    "message": "Fan abnormality",
+    "wiki": null
+  },
+  "11": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "12": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "13": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "14": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "15": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "16": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "17": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "18": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "19": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "20": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "21": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "22": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "23": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "24": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "25": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "26": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "27": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "28": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "29": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "30": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "31": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "32": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "33": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "34": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "35": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "36": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "37": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "38": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "39": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "40": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "41": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "42": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "43": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "44": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "45": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "46": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "47": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "48": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "49": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "50": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "51": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "52": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "53": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "54": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "55": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "56": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "57": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "58": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "59": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "60": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "61": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "62": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "63": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "64": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "65": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "66": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "67": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "68": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "69": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "70": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "71": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "72": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "73": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "74": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "75": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "76": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "77": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "78": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "79": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "80": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "81": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "82": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "83": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "84": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "85": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "86": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "87": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "88": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "89": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "90": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "91": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "92": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "93": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "94": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "95": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "96": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "97": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "98": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "99": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "100": {
+    "code": "100",
+    "level": 2,
+    "message": "An unknown error was detected in printing",
+    "wiki": null
+  },
+  "101": {
+    "code": "AC0101",
+    "level": 1,
+    "message": "A print quality issue has been detected and printing has been paused",
+    "wiki": null
+  },
+  "102": {
+    "code": null,
+    "level": null,
+    "message": "Unknown exception",
+    "wiki": null
+  },
+  "103": {
+    "code": "AC0103",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "104": {
+    "code": "AC0104",
+    "level": 1,
+    "message": "Foreign object detected on the printing platform, printing paused",
+    "wiki": null
+  },
+  "105": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "106": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "107": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "108": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "109": {
+    "code": "CF0109",
+    "level": 2,
+    "message": "Abnormal heat break fan",
+    "wiki": null
+  },
+  "110": {
+    "code": "BM0110",
+    "level": 2,
+    "message": "Motherboard Connection Failure",
+    "wiki": null
+  },
+  "111": {
+    "code": "BM0111",
+    "level": 2,
+    "message": "Nozzle connection abnormal",
+    "wiki": null
+  },
+  "112": {
+    "code": "BM0112",
+    "level": 2,
+    "message": "Hotbed Connection Abnormal",
+    "wiki": null
+  },
+  "113": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "114": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "115": {
+    "code": "CM0115",
+    "level": 1,
+    "message": "Detected unfinished task, do you wish to continue printing",
+    "wiki": null
+  },
+  "116": {
+    "code": "TR0116",
+    "level": 3,
+    "message": "Filament runout, printing paused, please refill",
+    "wiki": null
+  },
+  "117": {
+    "code": "AC0117",
+    "level": 1,
+    "message": "A model warping issue has been detected，printing has been paused",
+    "wiki": null
+  },
+  "118": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "119": {
+    "code": "AC0119",
+    "level": 1,
+    "message": "Detected waste chute is block. Please clean it up and try again.",
+    "wiki": null
+  },
+  "120": {
+    "code": "CA0120",
+    "level": 1,
+    "message": "Belt tension abnormal. Please rerun the Input Shaping before using the printer.",
+    "wiki": null
+  },
+  "121": {
+    "code": "FR0121",
+    "level": 1,
+    "message": "FR2357: CFS filament in use. To print with spool holder, unload CFS filament and reload spool holder before printing.",
+    "wiki": null
+  },
+  "122": {
+    "code": "FR0122",
+    "level": 1,
+    "message": "FR2358: Spool holder filament in use. To print with CFS, unload spool holder filament and reload CFS filament before printing.",
+    "wiki": null
+  },
+  "123": {
+    "code": "AC0123",
+    "level": 2,
+    "message": "Detected printing plate is missing, printing paused",
+    "wiki": null
+  },
+  "124": {
+    "code": "AC0124",
+    "level": 2,
+    "message": "Detected printing plate is missing and foreign object on the printing plate, printing paused",
+    "wiki": null
+  },
+  "125": {
+    "code": "XD0125",
+    "level": 1,
+    "message": "The current version doesn't support T command desassembled G-code files. Please upgrade the firmware.",
+    "wiki": null
+  },
+  "126": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "127": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "128": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "129": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "201": {
+    "code": "201",
+    "level": 2,
+    "message": "Abnormal temperature of the temperature chamber",
+    "wiki": null
+  },
+  "202": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "203": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "204": {
+    "code": "204",
+    "level": 2,
+    "message": "Fan abnormality",
+    "wiki": null
+  },
+  "205": {
+    "code": "205",
+    "level": 2,
+    "message": "network anomaly",
+    "wiki": null
+  },
+  "206": {
+    "code": "206",
+    "level": 2,
+    "message": "AI detected print quality issues",
+    "wiki": null
+  },
+  "207": {
+    "code": "207",
+    "level": 2,
+    "message": "z-Touch abnormality",
+    "wiki": null
+  },
+  "208": {
+    "code": "208",
+    "level": 2,
+    "message": "File anomaly",
+    "wiki": null
+  },
+  "209": {
+    "code": "209",
+    "level": 2,
+    "message": "Abnormal hot bed temperature",
+    "wiki": null
+  },
+  "210": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "211": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "212": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "213": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "214": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "215": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "216": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "217": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "218": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "219": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "220": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "221": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "222": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "223": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "224": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "225": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "226": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "227": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "228": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "229": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "500": {
+    "code": "AC0500",
+    "level": 2,
+    "message": "Printing quality issues detected by AI",
+    "wiki": null
+  },
+  "501": {
+    "code": "TF0501",
+    "level": 2,
+    "message": "TF0501: Heat break fan speed detected to be too low.",
+    "wiki": null
+  },
+  "502": {
+    "code": "CF0502",
+    "level": 2,
+    "message": "Mainboard fan exception",
+    "wiki": null
+  },
+  "503": {
+    "code": "AC0503",
+    "level": 2,
+    "message": "Detected a issue with the print quality of the first layer",
+    "wiki": null
+  },
+  "504": {
+    "code": "AL0504",
+    "level": 2,
+    "message": "Current file does not support flow detection",
+    "wiki": null
+  },
+  "505": {
+    "code": "AL0505",
+    "level": 2,
+    "message": "AI LiDAR anomaly",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-max/troubleshooting/ai-lidar-does-not-detect"
+  },
+  "506": {
+    "code": "AL0506",
+    "level": 2,
+    "message": "AI LiDAR calibration failure",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-series-general-documents/506-error-trouble-shooting"
+  },
+  "507": {
+    "code": "AL0507",
+    "level": 2,
+    "message": "AI LiDAR alignment failure",
+    "wiki": null
+  },
+  "508": {
+    "code": "BS0508",
+    "level": 2,
+    "message": "Current storage space usage has reached {0}, please clean up in time",
+    "wiki": null
+  },
+  "509": {
+    "code": "AC0509",
+    "level": 2,
+    "message": "Chamber temp too high, camera off. It'll auto-on when temp normalizes",
+    "wiki": null
+  },
+  "510": {
+    "code": "AC0510",
+    "level": 2,
+    "message": "Camera failed to start, try restarting",
+    "wiki": null
+  },
+  "511": {
+    "code": "AC0511",
+    "level": 2,
+    "message": "Current file does not support flow ratio calibration, printing with default values.",
+    "wiki": null
+  },
+  "512": {
+    "code": "AC0512",
+    "level": 2,
+    "message": "Current filament does not support flow ratio calibration, printing with default values.",
+    "wiki": null
+  },
+  "513": {
+    "code": "AC0513",
+    "level": 2,
+    "message": "Auto PA calibration image anomaly, printing with default values.",
+    "wiki": null
+  },
+  "514": {
+    "code": "AC0514",
+    "level": 2,
+    "message": "Auto PA calibration failed, printing with default values.",
+    "wiki": null
+  },
+  "515": {
+    "code": "AC0515",
+    "level": 2,
+    "message": "Flow ratio calibration image anomaly, printing with default values.",
+    "wiki": null
+  },
+  "516": {
+    "code": "AC0516",
+    "level": 2,
+    "message": "Flow ratio calibration failed, printing with default values.",
+    "wiki": null
+  },
+  "517": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "518": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "519": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "520": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "521": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "522": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "523": {
+    "code": "AC0523",
+    "level": 2,
+    "message": "A model warping issue has been detected.",
+    "wiki": null
+  },
+  "524": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "525": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "526": {
+    "code": "TF0526",
+    "level": 2,
+    "message": "TF0526: Model fan speed detected to be too low.",
+    "wiki": null
+  },
+  "527": {
+    "code": "AC0527",
+    "level": 2,
+    "message": "Detected waste chute is block. ",
+    "wiki": null
+  },
+  "528": {
+    "code": "FO0528",
+    "level": 2,
+    "message": "FO0528: Pinter seems to be printing without extruding.",
+    "wiki": null
+  },
+  "529": {
+    "code": "AC0529",
+    "level": 2,
+    "message": "Nozzle camera failed to start, try restarting.",
+    "wiki": null
+  },
+  "530": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "531": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "532": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "533": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "534": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "535": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "536": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "537": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "538": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "539": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "800": {
+    "code": "800",
+    "level": 2,
+    "message": "Axis movement error",
+    "wiki": null
+  },
+  "801": {
+    "code": "801",
+    "level": 2,
+    "message": "Machine preparation",
+    "wiki": null
+  },
+  "2000": {
+    "code": "XS2000",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-max/troubleshooting/2000-error-trouble-shooting"
+  },
+  "2001": {
+    "code": "XS2001",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-max/troubleshooting/2001-error-trouble-shooting"
+  },
+  "2022": {
+    "code": null,
+    "level": null,
+    "message": "An unknown error was detected in printing",
+    "wiki": null
+  },
+  "2060": {
+    "code": "XS2060",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": null
+  },
+  "2093": {
+    "code": "XS2093",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": null
+  },
+  "2111": {
+    "code": "TE2111",
+    "level": 1,
+    "message": "The nozzle temperature is below the minimum extrusion temperature",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-series-general-documents/2111-error-trouble-shooting"
+  },
+  "2243": {
+    "code": "CZ2243",
+    "level": 2,
+    "message": "Axis movement exceeded limit",
+    "wiki": null
+  },
+  "2340": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2352": {
+    "code": "CZ2863",
+    "level": 2,
+    "message": "Hotbed failed to return to the maximum Z-axis position or tilt calibration at this position failed,please try again after resolving.",
+    "wiki": null
+  },
+  "2355": {
+    "code": "BM2355",
+    "level": 2,
+    "message": "MCU task scheduling failed, possibly due to high load or communication issues.",
+    "wiki": null
+  },
+  "2357": {
+    "code": "CL2357",
+    "level": 2,
+    "message": "Hotbed failed to reach the maximum position. Check for sensor issues or bed tilt.Please check and retry.",
+    "wiki": null
+  },
+  "2509": {
+    "code": "TE2509",
+    "level": 1,
+    "message": "Unable to obtain nozzle temperature, the thermistor may be disconnected",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-series-general-documents/2509-error-trouble-shooting"
+  },
+  "2510": {
+    "code": "CB2510",
+    "level": 1,
+    "message": "Hotbed thermistor open circuit",
+    "wiki": null
+  },
+  "2511": {
+    "code": "CT2511",
+    "level": 2,
+    "message": "The chamber thermistor may be open circuit",
+    "wiki": null
+  },
+  "2512": {
+    "code": "BM2512",
+    "level": 1,
+    "message": "The motherboard temperature is abnormal",
+    "wiki": null
+  },
+  "2515": {
+    "code": "TE2515",
+    "level": 1,
+    "message": "Nozzle temperature exceeds limit, thermistor may be short-circuited",
+    "wiki": null
+  },
+  "2516": {
+    "code": "CB2516",
+    "level": 1,
+    "message": "Hotbed thermistor short circuit",
+    "wiki": null
+  },
+  "2517": {
+    "code": "CT2517",
+    "level": 2,
+    "message": "The chamber thermistor may be short circuit",
+    "wiki": null
+  },
+  "2519": {
+    "code": "CP2519",
+    "level": 2,
+    "message": "Chamber heater fan abnormal, chamber heating closed.",
+    "wiki": null
+  },
+  "2526": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2536": {
+    "code": "CL2536",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2537": {
+    "code": "CL2537",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2559": {
+    "code": "CP2559",
+    "level": 2,
+    "message": "Chamber heating issue, please ensure the printer is sealed",
+    "wiki": null
+  },
+  "2560": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2561": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2564": {
+    "code": "TE2564",
+    "level": 1,
+    "message": "The nozzle is not heating as expected",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-series-general-documents/2564-error-trouble-shooting"
+  },
+  "2565": {
+    "code": "CB2565",
+    "level": 1,
+    "message": "The heat bed is not heating as expected",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-max/troubleshooting/2565-error-trouble-shooting"
+  },
+  "2566": {
+    "code": "CX2566",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2567": {
+    "code": "CY2567",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2568": {
+    "code": "CZ2568",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2571": {
+    "code": "XD2571",
+    "level": 1,
+    "message": "Print file is corrupted",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-series-general-documents/2121-error-trouble-shooting"
+  },
+  "2573": {
+    "code": "CX2573",
+    "level": 1,
+    "message": "X-axis homing abnormality",
+    "wiki": null
+  },
+  "2577": {
+    "code": "CY2577",
+    "level": 1,
+    "message": "Y-axis homing abnormality",
+    "wiki": null
+  },
+  "2581": {
+    "code": "CZ2581",
+    "level": 1,
+    "message": "Z-axis homing abnormality",
+    "wiki": null
+  },
+  "2585": {
+    "code": "CX2585",
+    "level": 1,
+    "message": "X-axis print coordinates out of range",
+    "wiki": null
+  },
+  "2586": {
+    "code": "CY2586",
+    "level": 1,
+    "message": "Y-axis print coordinates out of range",
+    "wiki": null
+  },
+  "2587": {
+    "code": "CZ2587",
+    "level": 1,
+    "message": "Z-axis print coordinates out of range",
+    "wiki": null
+  },
+  "2588": {
+    "code": "CZ2588",
+    "level": 1,
+    "message": "Z Offset Exceeds Limit",
+    "wiki": null
+  },
+  "2710": {
+    "code": "CA2710",
+    "level": 2,
+    "message": "Belt tension module abnormal.",
+    "wiki": null
+  },
+  "2711": {
+    "code": "CA2711",
+    "level": 2,
+    "message": "Auto belt tension failure",
+    "wiki": null
+  },
+  "2712": {
+    "code": "CA2712",
+    "level": 2,
+    "message": "Chamber heater fan abnormal, chamber heating closed.",
+    "wiki": null
+  },
+  "2713": {
+    "code": "CA2713",
+    "level": 2,
+    "message": "Belt tension module error, left side belt communication line may be connected improperly. ",
+    "wiki": null
+  },
+  "2714": {
+    "code": "CA2714",
+    "level": 2,
+    "message": "Belt tension module error, right side belt tension module not calibrated, please recalibrate the module.",
+    "wiki": null
+  },
+  "2715": {
+    "code": "CA2715",
+    "level": 2,
+    "message": "Belt tension module error, left side belt tension module not calibrated, please recalibrate the module. ",
+    "wiki": null
+  },
+  "2716": {
+    "code": "CA2716",
+    "level": 2,
+    "message": "Belt tension module error, please troubleshoot and try recalibrating. ",
+    "wiki": null
+  },
+  "2717": {
+    "code": "CA2717",
+    "level": 2,
+    "message": "Belt tension module error, please troubleshoot and try recalibrating. ",
+    "wiki": null
+  },
+  "2718": {
+    "code": "CA2718",
+    "level": 2,
+    "message": "Belt tension timeout failure, please try retightening or restarting. ",
+    "wiki": null
+  },
+  "2719": {
+    "code": "CA2719",
+    "level": 2,
+    "message": "Belt tension timeout failure, please try retightening or restarting. ",
+    "wiki": null
+  },
+  "2720": {
+    "code": "CA2720",
+    "level": 2,
+    "message": "Abnormal belt tensioning module, right belt tensioning module calibration value abnormal, please recalibrate the module.",
+    "wiki": null
+  },
+  "2721": {
+    "code": "CA2721",
+    "level": 2,
+    "message": "Abnormal belt tensioning module, left belt tensioning module calibration value abnormal, please recalibrate the module.",
+    "wiki": null
+  },
+  "2722": {
+    "code": "CA2722",
+    "level": 1,
+    "message": "Detection of a low resonance frequency on the X-axis may be due to a loose belt.Continuing the print could affect quality. It's recommended to cancel,check belt tension, and recalibrate.",
+    "wiki": null
+  },
+  "2723": {
+    "code": "CA2723",
+    "level": 1,
+    "message": "Detection of a low resonance frequency on the Y-axis may be due to a loose belt.Continuing the print could affect quality. It's recommended to cancel,check belt tension, and recalibrate.",
+    "wiki": null
+  },
+  "2761": {
+    "code": "TE2761",
+    "level": 1,
+    "message": "Unable to read nozzle leveling sensor data, the connection between the nozzle and the motherboard may be loose or disconnected.",
+    "wiki": null
+  },
+  "2762": {
+    "code": "TE2762",
+    "level": 1,
+    "message": "The nozzle leveling sensor may be damaged or the wiping module may have fallen off. Please check or try restarting.",
+    "wiki": null
+  },
+  "2768": {
+    "code": "CZ2768",
+    "level": 1,
+    "message": "Z-axis homing issue,may have an external disturbance ",
+    "wiki": null
+  },
+  "2781": {
+    "code": "CM2781",
+    "level": 1,
+    "message": "[Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the print speed or re-slice and print again.[Not Printing] XY Motor: XY motor speed limit exceeded. The motor will be released. Please reduce the XY motor movement speed.Z Motor: Z motor speed limit exceeded. The motor will be released. Please reduce the Z motor movement speed.E Motor: Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed.",
+    "wiki": null
+  },
+  "2782": {
+    "code": "CM2782",
+    "level": 1,
+    "message": "[X/Y/E/Z1/Z2] step-servo position issue, please try again after resolving",
+    "wiki": null
+  },
+  "2783": {
+    "code": "CM2783",
+    "level": 1,
+    "message": "[Printing] XY Motor: An obstacle was detected during the extruder's movement. This print has been canceled and the motor is released.Z Motor: An obstacle was detected during the heated bed's movement. This print has been canceled and the motor is released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. Printing has been paused.[Not Printing] XY Motorstep-servo: An obstacle was detected during the nozzle's movement. The motor will be released.Z Motor: An obstacle was detected during the heated bed's movement. The motor will be released.E Motor: An extrusion anomaly was detected, possibly a clog, tangle, or jam. The motor will be released.",
+    "wiki": null
+  },
+  "2784": {
+    "code": "CM2784",
+    "level": 2,
+    "message": "Abnormal resistance in the Y-axis movement direction,  motor released. Fix issue and restart.",
+    "wiki": null
+  },
+  "2785": {
+    "code": "CM2785",
+    "level": 2,
+    "message": "Abnormal resistance under the hotbed, motor released. Fix issue and restart.",
+    "wiki": null
+  },
+  "2786": {
+    "code": "CM2786",
+    "level": 2,
+    "message": "Extruder speed limit exceeded. The motor will be released. Please reduce the extruder movement speed.",
+    "wiki": null
+  },
+  "2787": {
+    "code": "CM2787",
+    "level": 1,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2788": {
+    "code": "CM2788",
+    "level": 2,
+    "message": "[x or y or e] axis servo motor hardware abnormality/[z1 or z2] axis servo motor hardware abnormality, the platform plate will drop",
+    "wiki": null
+  },
+  "2789": {
+    "code": "CM2789",
+    "level": 2,
+    "message": "Extruder extrusion anomaly, possible clog or blockage. motor released.",
+    "wiki": null
+  },
+  "2790": {
+    "code": "CM2790",
+    "level": 1,
+    "message": "X Motor: X motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Y Motor: Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z1 Motor: Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.Z2 Motor: Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.E Motor: Extruder motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.",
+    "wiki": null
+  },
+  "2791": {
+    "code": "CM2791",
+    "level": 2,
+    "message": "Y motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.",
+    "wiki": null
+  },
+  "2792": {
+    "code": "CM2792",
+    "level": 2,
+    "message": "Z1 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.",
+    "wiki": null
+  },
+  "2793": {
+    "code": "CM2791",
+    "level": 2,
+    "message": "Z2 motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.",
+    "wiki": null
+  },
+  "2794": {
+    "code": "CM2794",
+    "level": 2,
+    "message": "E motor identification error detected. The motor wire may be connected improperly or the motor may be damaged.",
+    "wiki": null
+  },
+  "2797": {
+    "code": "BM2797",
+    "level": 2,
+    "message": "Extruder MCU temperature is too high, possibly due to high chamber temperature or delayed cooling of the extruder motherboard.",
+    "wiki": null
+  },
+  "2798": {
+    "code": "CM2798",
+    "level": 1,
+    "message": "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly",
+    "wiki": null
+  },
+  "2799": {
+    "code": "CM2799",
+    "level": 2,
+    "message": "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly",
+    "wiki": null
+  },
+  "2800": {
+    "code": "CM2800",
+    "level": 2,
+    "message": "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly",
+    "wiki": null
+  },
+  "2801": {
+    "code": "CM2799",
+    "level": 2,
+    "message": "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly",
+    "wiki": null
+  },
+  "2802": {
+    "code": "CM2802",
+    "level": 2,
+    "message": "X/Y/Z/E axis step-servo motor initialization error, motor communication line may be connected incorrectly",
+    "wiki": null
+  },
+  "2831": {
+    "code": "FS2831",
+    "level": 1,
+    "message": "communication issue, please try again after resolving.",
+    "wiki": null
+  },
+  "2832": {
+    "code": "FR2832",
+    "level": 1,
+    "message": "Retract issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving.",
+    "wiki": null
+  },
+  "2833": {
+    "code": "FR2833",
+    "level": 1,
+    "message": "Feed issue, check for filament or spool jams. Click &quot;Retry&quot; after resolving.",
+    "wiki": null
+  },
+  "2834": {
+    "code": "FS2834",
+    "level": 2,
+    "message": "System error.",
+    "wiki": null
+  },
+  "2835": {
+    "code": "FR2835",
+    "level": 1,
+    "message": "Feed issue , filament may be stuck from loader to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2836": {
+    "code": "FR2836",
+    "level": 1,
+    "message": "Feed issue , filament may be blocked between the CFS hub and extruder filament detector. Please resolve the issue and click &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2837": {
+    "code": "FO2837",
+    "level": 1,
+    "message": "Feed issue , filament may be jammed between the extruder sensor and the extruder gear. Please resolve the issue and click the &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2838": {
+    "code": "FO2838",
+    "level": 1,
+    "message": "Feed issue , filament may be stuck between the CFS hub sensor and the gear. Please resolve the issue and click the &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2839": {
+    "code": "FR2839",
+    "level": 1,
+    "message": "filament runs out, please refill.",
+    "wiki": null
+  },
+  "2840": {
+    "code": "FS2840",
+    "level": 2,
+    "message": "Command failed, current scenario does not support this command.",
+    "wiki": null
+  },
+  "2841": {
+    "code": "TC2841",
+    "level": 1,
+    "message": "Cutter issue, cutter might be jammed, please try again after resolving",
+    "wiki": null
+  },
+  "2842": {
+    "code": null,
+    "level": null,
+    "message": "Unknown error",
+    "wiki": null
+  },
+  "2843": {
+    "code": "FS2843",
+    "level": 2,
+    "message": "RFID cannot be read, please manually edit filament",
+    "wiki": null
+  },
+  "2844": {
+    "code": "FB2844",
+    "level": 1,
+    "message": "PTFE tube may have detached from the pneumatic fitting,  please try again after resolving.",
+    "wiki": null
+  },
+  "2845": {
+    "code": "FO2845",
+    "level": 1,
+    "message": "Extruder may be clogged. Click &quot;Retry&quot; after resolving.",
+    "wiki": null
+  },
+  "2846": {
+    "code": "FB2846",
+    "level": 1,
+    "message": "The filament buffer signal is abnormal,the buffer may be stuck or the filament may be tangle.",
+    "wiki": null
+  },
+  "2847": {
+    "code": "FB2847",
+    "level": 1,
+    "message": "Filament may tangled, please try again after resolving",
+    "wiki": null
+  },
+  "2848": {
+    "code": "FR2848",
+    "level": 1,
+    "message": "filament may be broken in CFS.",
+    "wiki": null
+  },
+  "2849": {
+    "code": "FR2849",
+    "level": 1,
+    "message": "Retract issue, filament cannot be returned to CFS hub. Please resolve the issue and click the &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2850": {
+    "code": "FR2850",
+    "level": 1,
+    "message": "Retract issue, filaments may be inserted into the CFS hub. Remove and click the &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2851": {
+    "code": "FR2851",
+    "level": 1,
+    "message": "Retract issue, Filament Buffer failure. Please resolve and click &quot;Retry&quot; button.",
+    "wiki": null
+  },
+  "2852": {
+    "code": "TR2852",
+    "level": 2,
+    "message": "TR2852: Filament detector triggered abnormally, possibly due to an external material rack being used with CFS.",
+    "wiki": null
+  },
+  "2853": {
+    "code": "FH2853",
+    "level": 2,
+    "message": "CFS temperature and humidity sensor abnormal.",
+    "wiki": null
+  },
+  "2854": {
+    "code": "TC2854",
+    "level": 1,
+    "message": "TC2854: Filament detected in the extruder, affecting the cutter calibration. Please remove the filament and try again.",
+    "wiki": null
+  },
+  "2855": {
+    "code": "TC2855",
+    "level": 1,
+    "message": "TC2855: Cutter calibrat failed. Please try again after resolving.",
+    "wiki": null
+  },
+  "2856": {
+    "code": "TC2856",
+    "level": 1,
+    "message": "TC2856: Cutter issue, the cutter may be jammed or missing. Click &quot;Retry&quot; after resolving.",
+    "wiki": null
+  },
+  "2857": {
+    "code": "FM2857",
+    "level": 1,
+    "message": "CFS feeding motor overload, maybe excessive load or unload resistance or the filament tangled or stuck.",
+    "wiki": null
+  },
+  "2858": {
+    "code": "FS2858",
+    "level": 2,
+    "message": "FS2858: CFS EEPROM abnormal.",
+    "wiki": null
+  },
+  "2859": {
+    "code": "FO2859",
+    "level": 2,
+    "message": "FO2859: CFS filament odometry abnormal.",
+    "wiki": null
+  },
+  "2860": {
+    "code": "FB2860",
+    "level": 2,
+    "message": "FB2860: CFS filament buffer abnormal.",
+    "wiki": null
+  },
+  "2861": {
+    "code": "FS2861",
+    "level": 2,
+    "message": "FS2861: CFS left RFID board abnormal.",
+    "wiki": null
+  },
+  "2862": {
+    "code": "FS2862",
+    "level": 2,
+    "message": "FS2862: CFS right RFID board abnormal.",
+    "wiki": null
+  },
+  "2863": {
+    "code": "TR2863",
+    "level": 2,
+    "message": "TR2858：Retract issue, extruder filament sensor anomaly triggered, filament may have broken inside the extruder.",
+    "wiki": null
+  },
+  "2864": {
+    "code": "FB2864",
+    "level": 2,
+    "message": "Feed issue, filament buffer failure. Please resolve and click \"Retry\" button.",
+    "wiki": null
+  },
+  "2865": {
+    "code": "FR2865",
+    "level": 2,
+    "message": "Feed issue, filament failed to exit extruder.Please resolve and click 'Retry' button.",
+    "wiki": null
+  },
+  "2866": {
+    "code": "TC2866",
+    "level": 2,
+    "message": "Cutter not detected.",
+    "wiki": null
+  },
+  "2931": {
+    "code": "FS2931",
+    "level": 1,
+    "message": "CFSLite communication issue, try again.",
+    "wiki": null
+  },
+  "2934": {
+    "code": "FS2934",
+    "level": 2,
+    "message": "Instruction data error, transmission failed.",
+    "wiki": null
+  },
+  "2936": {
+    "code": "FO2936",
+    "level": 1,
+    "message": "Load error. Extruder filament sensor not triggered; filament not loaded into extruder.",
+    "wiki": null
+  },
+  "2937": {
+    "code": "FO2937",
+    "level": 1,
+    "message": "Load error. Filament odometry rotation below expected; filament may be jammed between sensor and drive gear.",
+    "wiki": null
+  },
+  "2939": {
+    "code": "FR2939",
+    "level": 1,
+    "message": "No.{0} filament runs out, please refill.",
+    "wiki": null
+  },
+  "2940": {
+    "code": "FS2940",
+    "level": 2,
+    "message": "Command failed, current scenario does not support this command.",
+    "wiki": null
+  },
+  "2943": {
+    "code": "FS2943",
+    "level": 2,
+    "message": "No.1 RFID cannot be read, please manually edit filament",
+    "wiki": null
+  },
+  "2944": {
+    "code": "FB2944",
+    "level": 1,
+    "message": "Load error. Filament odometry normal, but extruder filament sensor not triggered for long; PTFE tube may be detached.",
+    "wiki": null
+  },
+  "2945": {
+    "code": "FO2945",
+    "level": 1,
+    "message": "Filament odometry rotation below expected; air printing detected; possible extruder clog.",
+    "wiki": null
+  },
+  "2947": {
+    "code": "FB2947",
+    "level": 1,
+    "message": "Buffer stays at empty limit; filament may be tangled.",
+    "wiki": null
+  },
+  "2949": {
+    "code": "FR2949",
+    "level": 1,
+    "message": "Unload error. Filament cannot be returned to CFS hub. Please resolve and retry.",
+    "wiki": null
+  },
+  "2952": {
+    "code": "TR2952",
+    "level": 2,
+    "message": "TR2952：Filament detector triggered abnormally, filament may have broken inside the extruder or inserted into a spool holder filament.",
+    "wiki": null
+  },
+  "2953": {
+    "code": "FH2953",
+    "level": 2,
+    "message": "CFSLite temperature and humidity sensor abnormal.",
+    "wiki": null
+  },
+  "2958": {
+    "code": "FS2958",
+    "level": 2,
+    "message": "CFSLite EEPROM abnormal.",
+    "wiki": null
+  },
+  "2961": {
+    "code": "FS2961",
+    "level": 2,
+    "message": "CFSLite left RFID board abnormal.",
+    "wiki": null
+  },
+  "2962": {
+    "code": "FS2962",
+    "level": 2,
+    "message": "CFSLite right RFID board abnormal.",
+    "wiki": null
+  },
+  "2963": {
+    "code": "TR2963",
+    "level": 1,
+    "message": "Retract issue, extruder filament sensor anomaly triggered, filament may have broken inside the extruder.",
+    "wiki": null
+  },
+  "2964": {
+    "code": "FB2964",
+    "level": 1,
+    "message": "Load error. Buffer did not reach full limit; filament may be grinding.",
+    "wiki": null
+  },
+  "2970": {
+    "code": "FO2970",
+    "level": 1,
+    "message": "Unload error. Load/unload motor stalled; filament cannot exit extruder.",
+    "wiki": null
+  },
+  "2971": {
+    "code": "FO2971",
+    "level": 1,
+    "message": "Preloading error; delivery overdue. Please resolve and retry.",
+    "wiki": null
+  },
+  "3000": {
+    "code": "XS3000",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": null
+  },
+  "3001": {
+    "code": "XS3001",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": null
+  },
+  "3002": {
+    "code": "XS3002",
+    "level": 1,
+    "message": "System error, try restarting",
+    "wiki": "https://wiki.creality.com/zh/k1-flagship-series/k1-max/troubleshooting/3002-error-trouble-shooting"
+  },
+  "3101": {
+    "code": "FS3101",
+    "level": 2,
+    "message": "Instruction data error, transmission failed.",
+    "wiki": null
+  },
+  "3103": {
+    "code": "FS3103",
+    "level": 2,
+    "message": "Command failed, current scenario does not support this command.",
+    "wiki": null
+  },
+  "3119": {
+    "code": "FB3119",
+    "level": 1,
+    "message": "Load error. Filament sensor not triggered, filament not loaded into extruder.",
+    "wiki": null
+  },
+  "3120": {
+    "code": "FO3120",
+    "level": 1,
+    "message": "Load error. Buffer not at full limit; PTFE tube may be detached or filament grinding detected.",
+    "wiki": null
+  },
+  "3121": {
+    "code": "FO3121",
+    "level": 1,
+    "message": "Load error. Buffer not at empty limit, filament not gripped or clog detected.",
+    "wiki": null
+  },
+  "3134": {
+    "code": "FO3134",
+    "level": 1,
+    "message": "Unload error. Buffer sensor did not trigger; possible filament grinding.",
+    "wiki": null
+  },
+  "3135": {
+    "code": "FR3135",
+    "level": 1,
+    "message": "Unload error. Filament sensor remains triggered, filament not unloaded.",
+    "wiki": null
+  },
+  "3149": {
+    "code": "FR3149",
+    "level": 2,
+    "message": "Filament runs out, please refill.",
+    "wiki": null
+  },
+  "3151": {
+    "code": "FB3151",
+    "level": 1,
+    "message": "Buffer stays at empty limit, possible filament tangling.",
+    "wiki": null
+  },
+  "3152": {
+    "code": "TR3152",
+    "level": 2,
+    "message": "TR3152：Filament detector triggered abnormally, filament may have broken inside the extruder or inserted into a spool holder filament.",
+    "wiki": null
+  },
+  "3160": {
+    "code": "FS3160",
+    "level": 2,
+    "message": "CFSmini communication issue, try again.",
+    "wiki": null
+  },
+  "3162": {
+    "code": "FM3162",
+    "level": 1,
+    "message": "CFSmini motor issue, try again.",
+    "wiki": null
+  },
+  "5000": {
+    "code": "CC5000",
+    "level": 1,
+    "message": "Movement coordinates are out of range; please ensure the printing file is correct.",
+    "wiki": null
+  },
+  "5001": {
+    "code": "CA5001",
+    "level": 2,
+    "message": "Belt issue detected, loosen the belt and retry vibration pattern optimization",
+    "wiki": null
+  },
+  "5002": {
+    "code": "CA5002",
+    "level": 2,
+    "message": "Belt issue detected, tighten the belt and retry vibration pattern optimization",
+    "wiki": null
+  },
+  "5003": {
+    "code": "CL5003",
+    "level": 1,
+    "message": "Leveling sensor failure",
+    "wiki": null
+  },
+  "5007": {
+    "code": "FS5007",
+    "level": 1,
+    "message": "Abnormal communication between cutter buffer module and host",
+    "wiki": null
+  },
+  "5008": {
+    "code": "FO5008",
+    "level": 1,
+    "message": "Extruder clogging detected. Please troubleshoot and click the \"Retry\" button.",
+    "wiki": null
+  },
+  "5009": {
+    "code": "FO5009",
+    "level": 1,
+    "message": "Feeding anomaly. The consumable may be clogged between the five-way connector and the consumable detector. Please troubleshoot the anomaly and click the \"Retry\" button.",
+    "wiki": null
+  },
+  "5010": {
+    "code": "FO5010",
+    "level": 1,
+    "message": "Abnormal feeding. The consumables may be clogged between the consumable detector and the extruder material break detector. Please resolve the issue and click the \"Retry\" button.",
+    "wiki": null
+  },
+  "5011": {
+    "code": "FS5011",
+    "level": 1,
+    "message": "Abnormal RFID reading, RFID tag failed",
+    "wiki": null
+  },
+  "5012": {
+    "code": "FS5012",
+    "level": 1,
+    "message": "Abnormal RFID writing, RFID tag invalid",
+    "wiki": null
+  },
+  "5013": {
+    "code": "FC5013",
+    "level": 1,
+    "message": "The usage frequency of the cutter has reached the lifespan standard.",
+    "wiki": null
+  },
+  "5014": {
+    "code": "FO5014",
+    "level": 1,
+    "message": "Cutting error at the tip of old material consumables",
+    "wiki": null
+  },
+  "5015": {
+    "code": "FO5015",
+    "level": 1,
+    "message": "Failed to perform tip feeding excision of consumables. Please troubleshoot and click the \"Retry\" button.",
+    "wiki": null
+  },
+  "5016": {
+    "code": "FC5016",
+    "level": 1,
+    "message": "Cutter initialization error",
+    "wiki": null
+  },
+  "5017": {
+    "code": "FO5017",
+    "level": 1,
+    "message": "Abnormality exists between the buffer and the filament detector of the extruder",
+    "wiki": null
+  },
+  "5018": {
+    "code": "FO5018",
+    "level": 1,
+    "message": "Currently, the filament retraction during material change is abnormal, and the tip removal process fails to execute.",
+    "wiki": null
+  },
+  "5019": {
+    "code": "XC5019",
+    "level": 1,
+    "message": "The communication module can interface communication is abnormal",
+    "wiki": null
+  },
+  "5020": {
+    "code": "CF5020",
+    "level": 2,
+    "message": "Motherboard fan failure",
+    "wiki": null
+  },
+  "5021": {
+    "code": "CC5021",
+    "level": 2,
+    "message": "Home the XY axes before moving them",
+    "wiki": null
+  },
+  "5022": {
+    "code": "CZ5022",
+    "level": 2,
+    "message": "Home before moving the Z axis",
+    "wiki": null
+  },
+  "5023": {
+    "code": "FS5023",
+    "level": 1,
+    "message": "The current RFID tag does not match the system. Please use Creality brand tagged consumables or replace with non-tagged consumables",
+    "wiki": null
+  },
+  "5024": {
+    "code": "FO5024",
+    "level": 1,
+    "message": "Abnormal cutter reset, please handle it promptly",
+    "wiki": null
+  },
+  "5026": {
+    "code": "TO5026",
+    "level": 1,
+    "message": "Printhead vibration sensor failure",
+    "wiki": null
+  },
+  "5027": {
+    "code": "XD5027",
+    "level": 2,
+    "message": "File does not exist",
+    "wiki": null
+  },
+  "5028": {
+    "code": "FR5028",
+    "level": 1,
+    "message": "The current consumables are in a state where they cannot be retracted for material replacement. Please troubleshoot the issue and try again.",
+    "wiki": null
+  },
+  "5034": {
+    "code": "FO5034",
+    "level": 1,
+    "message": "Cutter displacement failure before cutting the tip of the consumables",
+    "wiki": null
+  },
+  "5035": {
+    "code": "FO5035",
+    "level": 2,
+    "message": "Pre-loading error, please check if the material tray is jammed",
+    "wiki": null
+  },
+  "5036": {
+    "code": "FC5036",
+    "level": 2,
+    "message": "The optical axis in the cutter buffer needs maintenance.",
+    "wiki": null
+  },
+  "5037": {
+    "code": "FS5037",
+    "level": 2,
+    "message": "CFS-C does not support this consumable for now. Please choose supported consumables.",
+    "wiki": null
+  },
+  "5038": {
+    "code": "FS5038",
+    "level": 2,
+    "message": "Flow calibration is enabled. In the current state, manually feed the material first, then start printing.",
+    "wiki": null
+  },
+  "5510": {
+    "code": "CB5510",
+    "level": 1,
+    "message": "Heated bed temperature sensor failure",
+    "wiki": null
+  },
+  "5511": {
+    "code": "CT5511",
+    "level": 2,
+    "message": "Chamber temperature sensor failure",
+    "wiki": null
+  },
+  "20000": {
+    "code": null,
+    "level": 2,
+    "message": "The file where the last unexpected stop was detected",
+    "wiki": null
+  },
+  "20010": {
+    "code": null,
+    "level": 2,
+    "message": "Filament runout, printing paused, please refill",
+    "wiki": null
+  },
+  "30000": {
+    "code": null,
+    "level": 2,
+    "message": "No consumables detected, do you want to continue printing?",
+    "wiki": null
+  },
+  "30010": {
+    "code": null,
+    "level": 2,
+    "message": "There is no consumables in the current rack",
+    "wiki": null
+  }
+}

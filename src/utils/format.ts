@@ -39,3 +39,35 @@ export function fmtFilamentMeters(mm: number) {
 export function errMsg(e: unknown): string | undefined {
   return e instanceof Error ? e.message : undefined
 }
+
+// ---------------------------------------------------------------------------
+// Printer error lookup. The K2 Plus pushes a numeric errcode on its
+// WebSocket (port 9999) when the printer enters an error state. The
+// translations live in printer-errors.json, extracted from the
+// CrealityPrint webview bundle (CQKv4dak.js — same firmware family).
+// ---------------------------------------------------------------------------
+
+import errorMapJson from './printer-errors.json'
+
+export interface PrinterErrorInfo {
+  /** Short prefixed code, e.g. "FR5028" or "FO0528". May be null. */
+  code: string | null
+  /** 1 = error, 2 = warning. May be null if unknown. */
+  level: 1 | 2 | null
+  /** Human-readable English message. Falls back to null. */
+  message: string | null
+  /** Wiki URL for further troubleshooting, or null. */
+  wiki: string | null
+}
+
+const errorMap = errorMapJson as Record<string, PrinterErrorInfo>
+
+/**
+ * Look up a printer error by its numeric code (as pushed on the
+ * K2 Plus WebSocket). Returns null if unknown — caller should fall
+ * back to showing the raw code.
+ */
+export function printerError(code: number | string): PrinterErrorInfo | null {
+  const key = String(code)
+  return errorMap[key] ?? null
+}

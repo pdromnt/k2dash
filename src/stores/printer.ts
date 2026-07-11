@@ -56,6 +56,11 @@ export const usePrinterStore = defineStore('printer', () => {
   // variant (CrealityPrint's relay) uses {key, value} — handle both.
   const errorCode = ref(0)
   const errorMessage = ref('')
+  // Tracks which error code the user has manually dismissed so the
+  // banner stays hidden until the printer reports a NEW error (a
+  // different code). The same error re-asserting won't re-pop the
+  // banner — they have to actually clear the fault on the printer.
+  const dismissedErrorCode = ref(0)
   const extruderTemp = ref(0)
   const extruderTarget = ref(0)
   const bedTemp = ref(0)
@@ -184,7 +189,7 @@ export const usePrinterStore = defineStore('printer', () => {
     fanPart, fanAux, fanChamber, ledState,
     connected, filamentEstimated, filamentEstimatedWeight, printLeftTime, thumbnailUrl,
     cfsName, cfsHumidity, cfsTemp, cfsSlots, timelapseFiles,
-    errorCode, errorMessage,
+    errorCode, errorMessage, dismissedErrorCode,
     wsActive,
     position, filamentUsed,
     isPrinting, isPaused, isReady, isError,
