@@ -159,9 +159,11 @@ function parseStatus(msg: Record<string, unknown>) {
   // Error info: K2 Plus pushes a nested `err` object when the printer
   // is in an error state. The native firmware uses {errcode, value};
   // CrealityPrint's webview-shaped relay uses {key, value}. Handle
-  // both. If the printer reports state != 'error', clear any stale
-  // error from a previous frame. When a new (different) code
-  // arrives, reset the dismiss flag so the banner re-appears.
+  // both. The K2 Plus's WS does NOT include the `err` field in every
+  // status frame, so we must NOT clear the stored error on frames
+  // that don't carry it — only on a brand-new code. The error stays
+  // visible until the user dismisses it (or a NEW error arrives and
+  // resets the dismiss flag).
   if (msg.err && typeof msg.err === 'object') {
     const e = msg.err as Record<string, unknown>
     const code = Number(e.errcode ?? e.key ?? 0)
@@ -170,9 +172,6 @@ function parseStatus(msg: Record<string, unknown>) {
     if (code !== 0 && code !== store.dismissedErrorCode) {
       store.dismissedErrorCode = 0
     }
-  } else if (store.state !== 'error') {
-    store.errorCode = 0
-    store.errorMessage = ''
   }
 
   const et = n(msg.nozzleTemp); if (et !== undefined) store.extruderTemp = et

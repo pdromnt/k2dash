@@ -1124,7 +1124,7 @@
   "528": {
     "code": "FO0528",
     "level": 2,
-    "message": "FO0528: Pinter seems to be printing without extruding.",
+    "message": "FO0528: Printer seems to be printing without extruding.",
     "wiki": null
   },
   "529": {
