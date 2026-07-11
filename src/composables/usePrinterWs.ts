@@ -166,7 +166,15 @@ function parseStatus(msg: Record<string, unknown>) {
   // resets the dismiss flag).
   if (msg.err && typeof msg.err === 'object') {
     const e = msg.err as Record<string, unknown>
-    const code = Number(e.errcode ?? e.key ?? 0)
+    // The K2 Plus firmware's `err` payload carries both:
+    //   - `errcode`: a generic exception class (e.g. 500 = "Unknown
+    //     exception") — too coarse to be useful on its own
+    //   - `key`:     the actual error code that maps to a real
+    //     message (e.g. 528 = FO0528 "printing without extruding")
+    //   - `value`:   optional extra context (often empty)
+    // Prefer `key` for display, fall back to `errcode` if missing.
+    // Matches CrealityPrint's ErrorTip component, which reads g.err.key.
+    const code = Number(e.key ?? e.errcode ?? 0)
     store.errorCode = code
     store.errorMessage = typeof e.value === 'string' ? e.value : ''
     if (code !== 0 && code !== store.dismissedErrorCode) {
