@@ -51,6 +51,11 @@ export const usePrinterStore = defineStore('printer', () => {
   const currentLayer = ref(0)
   const totalLayers = ref(0)
   const printDuration = ref(0)
+  // K2 Plus WS pushes a nested `err` object when the printer is in an
+  // error state: {errcode: <int>, value: <string>}. The webview-shaped
+  // variant (CrealityPrint's relay) uses {key, value} — handle both.
+  const errorCode = ref(0)
+  const errorMessage = ref('')
   const extruderTemp = ref(0)
   const extruderTarget = ref(0)
   const bedTemp = ref(0)
@@ -179,6 +184,7 @@ export const usePrinterStore = defineStore('printer', () => {
     fanPart, fanAux, fanChamber, ledState,
     connected, filamentEstimated, filamentEstimatedWeight, printLeftTime, thumbnailUrl,
     cfsName, cfsHumidity, cfsTemp, cfsSlots, timelapseFiles,
+    errorCode, errorMessage,
     wsActive,
     position, filamentUsed,
     isPrinting, isPaused, isReady, isError,

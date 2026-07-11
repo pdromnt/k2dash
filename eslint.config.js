@@ -38,6 +38,8 @@ export default tseslint.config(
         File: 'readonly',
         FormData: 'readonly',
         XMLHttpRequest: 'readonly',
+        Event: 'readonly',
+        HTMLImageElement: 'readonly',
         requestAnimationFrame: 'readonly',
       },
     },

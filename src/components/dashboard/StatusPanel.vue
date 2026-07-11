@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinter } from '@/composables/usePrinter'
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { fmtDur, fmtFilamentMeters, splitPath } from '@/utils/format'
 
 const printer = usePrinterStore()
@@ -25,10 +25,35 @@ function togglePill() {
   else { showPill.value = true; pillTimer = setTimeout(dismiss, 5000) }
 }
 
+// The K2 Plus firmware generates current_print_image.png lazily — at
+// print start the WS fires the filename before the file is on disk,
+// so the first fetch 404s. Retry once after a short delay; by then
+// the file is in place. Single retry so a genuinely missing file
+// (no print running) doesn't loop forever.
+let thumbnailRetried = false
+function onThumbnailError(e: Event) {
+  if (thumbnailRetried) return
+  thumbnailRetried = true
+  setTimeout(() => {
+    // Force a re-render by appending a unique cache-buster. The
+    // browser's broken-image state clears on src reassignment.
+    const img = e.target as HTMLImageElement
+    const base = printer.thumbnailUrl.split('?')[0]
+    img.src = `${base}?retry=${Date.now()}`
+  }, 1500)
+}
+function resetThumbnailRetry() {
+  thumbnailRetried = false
+}
+
 onMounted(() => document.addEventListener('click', dismiss))
 onUnmounted(() => { document.removeEventListener('click', dismiss); clearTimeout(pillTimer) })
 
 const rawFname = computed(() => splitPath(printer.printFilename))
+
+// Reset the thumbnail retry guard when a new print starts so the next
+// 404 (firmware hasn't written the file yet) can retry once again.
+watch(rawFname, () => resetThumbnailRetry())
 
 function tempColor(c: number, t: number) {
   if (t <= 0) return 'var(--text-mute)'
@@ -66,6 +91,23 @@ const heaters = computed(() => [
       </span>
     </div>
 
+    <!-- Error banner: shown when the K2 Plus reports a non-zero errcode.
+         The message text comes from the firmware (localized). k2-dash
+         doesn't have a translation map, so we show the code + raw text
+         if the firmware provides one. -->
+    <div
+      v-if="printer.errorCode !== 0"
+      class="shrink-0 mb-4 px-4 py-2.5 rounded-lg bg-[rgba(224,85,85,0.12)] border border-[rgba(224,85,85,0.3)] text-[var(--red)]"
+    >
+      <div class="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider">
+        <span class="status-dot bg-[var(--red)] shrink-0" style="width:6px;height:6px"></span>
+        <span>Printer error · code {{ printer.errorCode }}</span>
+      </div>
+      <div v-if="printer.errorMessage" class="text-[12px] text-[var(--text-dim)] mt-1.5 break-words">
+        {{ printer.errorMessage }}
+      </div>
+    </div>
+
     <div class="flex-1 flex flex-col justify-center gap-5 max-sm:gap-4 lg:gap-8">
 
     <!-- Temperatures: responsive grid -->
@@ -93,8 +135,10 @@ const heaters = computed(() => [
         <img
           v-if="printer.thumbnailUrl"
           :src="printer.thumbnailUrl"
+          :key="printer.thumbnailUrl"
           :alt="rawFname || 'Print preview'"
           class="w-[11.2rem] h-[11.2rem] rounded-lg object-cover bg-[var(--bg-input)] border border-[var(--border)] shrink-0 transition-transform duration-200 sm:hover:scale-[2.5] sm:hover:z-30 sm:hover:shadow-2xl sm:hover:rounded-xl origin-left sm:cursor-pointer"
+          @error="onThumbnailError"
         />
         <div class="flex-1 min-w-0 flex flex-col justify-center gap-5 max-sm:w-full">
           <div class="flex sm:items-end justify-between gap-6 max-sm:flex-col max-sm:gap-2">

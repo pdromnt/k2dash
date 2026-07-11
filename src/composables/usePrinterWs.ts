@@ -156,6 +156,21 @@ function parseStatus(msg: Record<string, unknown>) {
     store.state = msg.state as PrinterState
   }
 
+  // Error info: K2 Plus pushes a nested `err` object when the printer
+  // is in an error state. The native firmware uses {errcode, value};
+  // CrealityPrint's webview-shaped relay uses {key, value}. Handle
+  // both. If the printer reports state != 'error', clear any stale
+  // error from a previous frame.
+  if (msg.err && typeof msg.err === 'object') {
+    const e = msg.err as Record<string, unknown>
+    const code = Number(e.errcode ?? e.key ?? 0)
+    store.errorCode = code
+    store.errorMessage = typeof e.value === 'string' ? e.value : ''
+  } else if (store.state !== 'error') {
+    store.errorCode = 0
+    store.errorMessage = ''
+  }
+
   const et = n(msg.nozzleTemp); if (et !== undefined) store.extruderTemp = et
   const ett = n(msg.targetNozzleTemp); if (ett !== undefined) store.extruderTarget = ett
   const bt = n(msg.bedTemp0); if (bt !== undefined) store.bedTemp = bt
@@ -202,6 +217,8 @@ function clearPrintJob() {
   store.currentLayer = 0
   store.totalLayers = 0
   store.thumbnailUrl = ''
+  store.errorCode = 0
+  store.errorMessage = ''
 }
 
 function parseBoxsInfo(info: Record<string, unknown>) {
