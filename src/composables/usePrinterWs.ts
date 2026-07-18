@@ -18,6 +18,8 @@ import {
   hasTimelapseDeleteResult,
   hasTimelapseList,
   initialStateRequest,
+  normalizeCrealityLayer,
+  normalizeCrealityProgress,
   pauseCommand,
   resumeCommand,
   startPrintCommand,
@@ -41,7 +43,6 @@ const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
 const STATUS_POLL_MS = 5000
 const CFS_POLL_MS = 20000
-const LAYER_DIVIDER = 3 // Creality WS reports layer at 3x the actual count
 
 // Creality WS device state → Klipper-style state name
 const DEVICE_STATE_MAP: Record<number, string> = {
@@ -268,14 +269,19 @@ function parseStatus(msg: Record<string, unknown>) {
   const ctt = n(msg.targetBoxTemp); if (ctt !== undefined) store.chamberTarget = ctt
 
   const pp = n(msg.printProgress)
-  if (pp !== undefined) store.printProgress = pp <= 1 ? Math.round(pp * 100) : Math.round(pp)
+  // Creality's WS reports percentage points directly (1 means 1%, not
+  // 100%). Match CrealityPrint and only clamp malformed firmware values.
+  if (pp !== undefined) store.printProgress = normalizeCrealityProgress(pp)
   if (typeof msg.printFileName === 'string') {
     store.printFilename = normalizeGcodePath(msg.printFileName)
     if (store.printFilename && fileList.value.length) matchEstimatedData(fileList.value)
   }
   const pjt = n(msg.printJobTime); if (pjt !== undefined) store.printDuration = pjt
   const plt = n(msg.printLeftTime); if (plt !== undefined) store.printLeftTime = plt
-  const l = n(msg.layer); if (l !== undefined) store.currentLayer = Math.round(l / LAYER_DIVIDER)
+  // CrealityPrint displays both layer counters exactly as received. The old
+  // divide-by-three workaround turned layer 1 into 0, which the UI rendered
+  // as a dash, and caused later updates to lag behind the printer.
+  const l = n(msg.layer); if (l !== undefined) store.currentLayer = normalizeCrealityLayer(l)
   const tl = n(msg.TotalLayer); if (tl !== undefined) store.totalLayers = tl
   const fu = n(msg.usedMaterialLength); if (fu !== undefined) store.filamentUsed = fu
 

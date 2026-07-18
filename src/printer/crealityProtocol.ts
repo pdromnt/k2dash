@@ -25,6 +25,14 @@ export type CrealityMessage =
   | { method: 'get'; params: CrealityGetParams }
   | { method: 'set'; params: CrealitySetParams }
 
+export function normalizeCrealityProgress(progress: number): number {
+  return Math.round(Math.min(100, Math.max(0, progress)))
+}
+
+export function normalizeCrealityLayer(layer: number): number {
+  return Math.max(0, Math.round(layer))
+}
+
 export const initialStateRequest = (): CrealityMessage => ({
   method: 'get',
   params: {

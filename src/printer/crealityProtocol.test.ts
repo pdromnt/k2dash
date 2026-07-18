@@ -3,6 +3,8 @@ import {
   cancelCommand,
   deleteTimelapseCommand,
   gcodeCommand,
+  normalizeCrealityLayer,
+  normalizeCrealityProgress,
   pauseCommand,
   resumeCommand,
   startPrintCommand,
@@ -12,6 +14,15 @@ import {
 } from './crealityProtocol'
 
 describe('Creality printer protocol', () => {
+  it('keeps Creality progress and layer telemetry in percentage-point units', () => {
+    expect(normalizeCrealityProgress(1)).toBe(1)
+    expect(normalizeCrealityProgress(2)).toBe(2)
+    expect(normalizeCrealityProgress(101)).toBe(100)
+    expect(normalizeCrealityProgress(-1)).toBe(0)
+    expect(normalizeCrealityLayer(1)).toBe(1)
+    expect(normalizeCrealityLayer(2)).toBe(2)
+  })
+
   it('builds the current-job request used after a state transition', () => {
     expect(statusRequest()).toEqual({
       method: 'get',
