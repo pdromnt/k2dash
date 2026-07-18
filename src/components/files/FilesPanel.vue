@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
+import { usePrinterStore } from '@/stores/printer'
 import { getFileList, deleteFile, renameFile, type FileInfo } from '@/api/moonraker'
 import { uploadFileKlipper4408 } from '@/api/creality'
 import { usePrinterWs } from '@/composables/usePrinterWs'
@@ -9,7 +10,11 @@ import { fmtSize, fmtDate, splitPath, replaceBasename, errMsg } from '@/utils/fo
 
 const banner = useBannerStore()
 const toast = useToastStore()
+const printer = usePrinterStore()
 const printerWs = usePrinterWs()
+
+const jobActive = computed(() => printer.isPrinting || printer.isPaused)
+const ACTIONS_LOCKED_TIP = "Can't modify or start G-code files while a print is active"
 
 const files = ref<FileInfo[]>([])
 const uploading = ref(false)
@@ -30,6 +35,7 @@ async function load() {
 }
 
 async function del(f: FileInfo) {
+  if (jobActive.value) return
   if (!confirm(`Delete ${f.path}?`)) return
   try {
     await deleteFile(f.path)
@@ -41,6 +47,7 @@ async function del(f: FileInfo) {
 }
 
 async function rename(f: FileInfo) {
+  if (jobActive.value) return
   const currentName = splitPath(f.path)
   const entered = window.prompt('Rename G-code file:', currentName)
   if (entered === null) return
@@ -68,6 +75,7 @@ async function rename(f: FileInfo) {
 }
 
 async function pr(f: FileInfo) {
+  if (jobActive.value) return
   try {
     await printerWs.startPrint(f.path)
     toast.show(`Printing ${f.path}`)
@@ -104,6 +112,9 @@ onMounted(load)
     <div class="flex items-center justify-between">
       <div class="t-title">Files</div>
       <div class="flex items-center gap-3">
+        <span v-if="jobActive" class="text-[11px] text-[var(--amber)] uppercase tracking-wider" title="File actions unlock when the active print finishes">
+          Actions locked
+        </span>
         <span v-if="!loading && files.length > 0" class="t-mute font-mono">{{ files.length }} files</span>
         <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload files">
           <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -156,9 +167,9 @@ onMounted(load)
               </div>
             </div>
             <div class="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
-              <button class="btn btn-primary btn-sm" @click="pr(f)">Print</button>
-              <button class="btn btn-sm" :disabled="!f.permissions.includes('w')" @click="rename(f)">Rename</button>
-              <button class="btn btn-danger btn-sm" :disabled="!f.permissions.includes('w')" @click="del(f)">Delete</button>
+              <button class="btn btn-primary btn-sm" :disabled="jobActive" :title="jobActive ? ACTIONS_LOCKED_TIP : `Print ${splitPath(f.path)}`" @click="pr(f)">Print</button>
+              <button class="btn btn-sm" :disabled="jobActive || !f.permissions.includes('w')" :title="jobActive ? ACTIONS_LOCKED_TIP : `Rename ${splitPath(f.path)}`" @click="rename(f)">Rename</button>
+              <button class="btn btn-danger btn-sm" :disabled="jobActive || !f.permissions.includes('w')" :title="jobActive ? ACTIONS_LOCKED_TIP : `Delete ${splitPath(f.path)}`" @click="del(f)">Delete</button>
             </div>
           </div>
         </li>
