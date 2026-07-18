@@ -36,10 +36,6 @@ onMounted(() => { if (import.meta.env.VITE_PRINTER_HOST) connect() })
         </div>
       </div>
 
-      <div v-if="connected" class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-black/70 border border-white/10">
-        <span class="status-dot bg-[var(--red)] dot-pulse"></span>
-        <span class="text-[10px] font-bold tracking-[0.14em]">LIVE</span>
-      </div>
     </div>
 
     <div class="flex items-center justify-between">
