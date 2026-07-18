@@ -73,6 +73,13 @@ export async function deleteFile(filePath: string): Promise<string> {
   return api.delete(`/server/files/gcodes/${encodeURIComponent(filePath)}`);
 }
 
+export async function renameFile(sourcePath: string, destinationPath: string): Promise<unknown> {
+  return api.post('/server/files/move', {
+    source: `gcodes/${sourcePath.replace(/^\/+/, '')}`,
+    dest: `gcodes/${destinationPath.replace(/^\/+/, '')}`,
+  });
+}
+
 export async function startPrint(filename: string): Promise<string> {
   return api.post("/printer/print/start", { filename });
 }
@@ -92,6 +99,14 @@ export async function cancelPrint(): Promise<string> {
 export async function getHistoryList(): Promise<HistoryList> {
   const data = await api.get<{ result: HistoryList }>("/server/history/list");
   return data.result;
+}
+
+export async function deleteHistoryJob(jobId: string): Promise<unknown> {
+  return api.delete(`/server/history/job?uid=${encodeURIComponent(jobId)}`);
+}
+
+export async function clearHistory(): Promise<unknown> {
+  return api.delete('/server/history/job?all=true');
 }
 
 export async function getConfigFiles(): Promise<FileInfo[]> {

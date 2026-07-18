@@ -18,6 +18,11 @@ export function splitPath(p: string) {
   return p.split('/').pop() || p
 }
 
+export function replaceBasename(path: string, basename: string): string {
+  const slash = path.lastIndexOf('/')
+  return slash >= 0 ? `${path.slice(0, slash + 1)}${basename}` : basename
+}
+
 /**
  * Normalize a gcode filename to its path relative to the gcodes root.
  * The Creality K2 Plus WebSocket sometimes sends the absolute filesystem

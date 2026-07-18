@@ -35,11 +35,10 @@ async function refresh() {
   }
   refreshing.value = true
   try {
-    printerWs.refreshTimelapses()
-    // Give the WS a moment to deliver the response. The actual update
-    // happens in the WS message handler.
-    await new Promise((r) => setTimeout(r, 1000))
+    await printerWs.refreshTimelapses()
     toast.show(`Refreshed timelapses (${printer.timelapseFiles.length})`)
+  } catch (e) {
+    banner.show('Failed to refresh timelapses', e instanceof Error ? e.message : undefined)
   } finally {
     refreshing.value = false
   }
@@ -47,15 +46,11 @@ async function refresh() {
 
 async function deleteTimelapse(f: { video: string }) {
   if (!confirm(`Delete ${f.video}?`)) return
-  const ws = window.__printerWs
-  if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      method: 'set',
-      params: { ctrlVideoFiles: { cmd: 'remove', printId: '', file: f.video } },
-    }))
+  try {
+    await printerWs.deleteTimelapse(f.video)
     toast.show(`Deleted ${f.video}`)
-  } else {
-    banner.show('Printer WebSocket not connected')
+  } catch (e) {
+    banner.show('Failed to delete timelapse', e instanceof Error ? e.message : undefined)
   }
 }
 </script>

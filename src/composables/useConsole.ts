@@ -2,7 +2,6 @@ import { ref, onUnmounted, watch } from 'vue'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterWs } from '@/composables/usePrinterWs'
-import { sendGcode } from '@/api/moonraker'
 import { errMsg } from '@/utils/format'
 
 interface ConsoleMessage {
@@ -70,21 +69,12 @@ export function useConsole() {
     if (!command) return
     addMessage('send', command)
 
-    const sock = window.__printerWs
-    if (sock?.readyState === WebSocket.OPEN) {
-      sock.send(JSON.stringify({
-        method: 'set',
-        params: { gcodeCmd: command + '\n' },
-      }))
+    try {
+      await printerWs.sendGcodeCommand(command + '\n')
       toast.show(`Sent \u00b7 ${command}`)
-    } else {
-      try {
-        await sendGcode(command)
-        toast.show(`Sent \u00b7 ${command}`)
-      } catch (e) {
-        banner.show('Failed to send G-code', errMsg(e))
-        addMessage('system', `Error: ${e instanceof Error ? e.message : 'Failed'}`)
-      }
+    } catch (e) {
+      banner.show('Failed to send G-code', errMsg(e))
+      addMessage('system', `Error: ${e instanceof Error ? e.message : 'Failed'}`)
     }
   }
 

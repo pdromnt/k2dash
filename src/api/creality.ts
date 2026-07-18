@@ -14,13 +14,20 @@ export async function uploadFileKlipper4408(
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
+    let lastProgressAt = performance.now()
+    let lastLoaded = 0
     xhr.open('POST', url)
     xhr.timeout = 300000
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable && onProgress) {
         const pct = Math.round((e.loaded / e.total) * 100)
-        onProgress(pct, 0)
+        const now = performance.now()
+        const elapsedSeconds = (now - lastProgressAt) / 1000
+        const speed = elapsedSeconds > 0 ? (e.loaded - lastLoaded) / elapsedSeconds : 0
+        lastProgressAt = now
+        lastLoaded = e.loaded
+        onProgress(pct, speed)
       }
     })
 
@@ -34,6 +41,7 @@ export async function uploadFileKlipper4408(
 
     xhr.addEventListener('error', () => reject(new Error('Upload error')))
     xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
+    xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
 
     const formData = new FormData()
     formData.append('file', file)

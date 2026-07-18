@@ -3,12 +3,13 @@ import { ref, computed, watch } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
-import { emergencyStop, sendGcode, pausePrint, resumePrint, cancelPrint } from '@/api/moonraker'
+import { usePrinterWs } from '@/composables/usePrinterWs'
 import { errMsg } from '@/utils/format'
 
 const printer = usePrinterStore()
 const banner = useBannerStore()
 const toast = useToastStore()
+const printerWs = usePrinterWs()
 
 const jog = ref(10)
 const fanSliders = ref([printer.fanPart, printer.fanAux, printer.fanChamber])
@@ -17,46 +18,27 @@ watch(() => [printer.fanPart, printer.fanAux, printer.fanChamber], ([p, a, c]) =
   fanSliders.value = [p, a, c]
 })
 
-/**
- * Send a G-code script through whichever transport the K2 Plus actually
- * speaks. The console already proved port 9999 accepts
- * `{method:'set', params:{gcodeCmd:...}}` and the printer responds via
- * `gcodeRes`. We re-use that same channel here so all panel controls
- * work the same way.
- *
- * Moonraker's HTTP `POST /printer/gcode/script` 500s on the K2 Plus
- * because its Creality firmware doesn't expose that endpoint, so the
- * old `sendGcode(...)` path is deliberately bypassed.
- */
-function wsGcode(script: string, label?: string) {
-  if (!import.meta.env.VITE_PRINTER_HOST) return
-  const ws = window.__printerWs
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    banner.show('Printer WebSocket not connected')
-    return
-  }
-  ws.send(JSON.stringify({ method: 'set', params: { gcodeCmd: script } }))
-  toast.show(label ? `${label} · OK` : `OK · ${script.split('\n')[0]}`)
-}
-
 async function cmd(script: string, label?: string) {
   if (!import.meta.env.VITE_PRINTER_HOST) return
   try {
-    await sendGcode(script)
+    await printerWs.sendGcodeCommand(script)
     toast.show(label ? `${label} · OK` : `OK · ${script.split('\n')[0]}`)
   } catch (e) {
     banner.show('Failed to send G-code', errMsg(e))
   }
 }
 
-function allOff() {
-  // Three separate heater zero-targets through the K2 Plus WS. Mirror
-  // the per-heater `setTemp` channel rather than batching gcodeCmd
-  // lines because the firmware may not interpret a multi-line script
-  // targeted at the right heater.
-  wsGcode('M104 S0', 'Extruder off')
-  wsGcode('M140 S0', 'Bed off')
-  wsGcode('M141 S0', 'Chamber off')
+async function allOff() {
+  try {
+    await Promise.all([
+      printerWs.sendGcodeCommand('M104 S0'),
+      printerWs.sendGcodeCommand('M140 S0'),
+      printerWs.sendGcodeCommand('M141 S0'),
+    ])
+    toast.show('All heaters off')
+  } catch (e) {
+    banner.show('Failed to turn heaters off', errMsg(e))
+  }
 }
 
 async function setTemp(heater: string, temp: string) {
@@ -70,17 +52,46 @@ async function setTemp(heater: string, temp: string) {
   if (heater === 'heater_generic chamber_heater') {
     // M141 sets the chamber target. K2 Plus firmware runs Klipper
     // underneath so this should work; if not it no-ops silently.
-    wsGcode(`M141 S${t}`, `Chamber target \u00b7 ${t}\u00b0C`)
+    await cmd(`M141 S${t}`, `Chamber target \u00b7 ${t}\u00b0C`)
     return
   }
 
   // M104 = extruder, M140 = bed. Both work via `gcodeCmd`.
   const mcode = heater === 'heater_bed' ? `M140 S${t}` : `M104 S${t}`
-  wsGcode(mcode, `${heater === 'heater_bed' ? 'Bed' : 'Extruder'} target \u00b7 ${t}\u00b0C`)
+  await cmd(mcode, `${heater === 'heater_bed' ? 'Bed' : 'Extruder'} target \u00b7 ${t}\u00b0C`)
+}
+
+async function runPrintAction(label: string, action: () => Promise<unknown>) {
+  try {
+    await action()
+    toast.show(label)
+  } catch (e) {
+    banner.show(`${label} failed`, errMsg(e))
+  }
+}
+
+function pauseJob() {
+  return runPrintAction('Print paused', printerWs.pausePrint)
+}
+
+function resumeJob() {
+  return runPrintAction('Print resumed', printerWs.resumePrint)
+}
+
+function cancelJob() {
+  if (!confirm('Cancel the current print?')) return
+  return runPrintAction('Print cancelled', printerWs.cancelPrint)
+}
+
+function stopPrinter() {
+  if (!confirm('EMERGENCY STOP? The printer will require a firmware restart.')) return
+  return runPrintAction('Emergency stop sent', printerWs.emergencyStop)
 }
 
 async function setFan(pin: number, pct: number) {
-  await cmd(`M106 P${pin} S${Math.round(pct * 2.55)}`, `Fan \u00b7 ${Math.round(pct)}%`)
+  // CrealityPrint maps UI fans as part=P0, case=P2, auxiliary=P1.
+  const crealityFan = [0, 2, 1][pin]
+  await cmd(`M106 P${crealityFan} S${Math.round(pct * 2.55)}`, `Fan \u00b7 ${Math.round(pct)}%`)
 }
 
 async function toggleLed() {
@@ -152,11 +163,11 @@ function jogGradient(value: number) {
 
     <!-- Print controls -->
     <div class="flex flex-wrap items-center gap-2">
-      <button v-if="printer.isPaused" class="btn btn-primary" @click="resumePrint()">Resume</button>
-      <button v-if="printer.isPrinting" class="btn btn-warn" @click="pausePrint()">Pause</button>
-      <button v-if="printer.isPrinting || printer.isPaused" class="btn" @click="cancelPrint()">Cancel</button>
+      <button v-if="printer.isPaused" class="btn btn-primary" @click="resumeJob">Resume</button>
+      <button v-if="printer.isPrinting" class="btn btn-warn" @click="pauseJob">Pause</button>
+      <button v-if="printer.isPrinting || printer.isPaused" class="btn" @click="cancelJob">Cancel</button>
       <span v-if="!printer.isPrinting && !printer.isPaused" class="t-mute uppercase tracking-wider">No active print</span>
-      <button class="btn btn-danger ml-auto shrink-0" @click="emergencyStop()">
+      <button class="btn btn-danger ml-auto shrink-0" @click="stopPrinter">
         🚨 ABORT
       </button>
     </div>

@@ -2,12 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
-import { getFileList, deleteFile, startPrint, type FileInfo } from '@/api/moonraker'
+import { getFileList, deleteFile, renameFile, type FileInfo } from '@/api/moonraker'
 import { uploadFileKlipper4408 } from '@/api/creality'
-import { fmtSize, fmtDate, splitPath, errMsg } from '@/utils/format'
+import { usePrinterWs } from '@/composables/usePrinterWs'
+import { fmtSize, fmtDate, splitPath, replaceBasename, errMsg } from '@/utils/format'
 
 const banner = useBannerStore()
 const toast = useToastStore()
+const printerWs = usePrinterWs()
 
 const files = ref<FileInfo[]>([])
 const uploading = ref(false)
@@ -38,9 +40,36 @@ async function del(f: FileInfo) {
   }
 }
 
+async function rename(f: FileInfo) {
+  const currentName = splitPath(f.path)
+  const entered = window.prompt('Rename G-code file:', currentName)
+  if (entered === null) return
+
+  const newName = entered.trim()
+  if (!newName || newName === currentName) return
+  if (newName === '.' || newName === '..' || /[\\/:*?"<>|]/.test(newName)) {
+    banner.show('Invalid filename', 'Use a filename without slashes or reserved characters.')
+    return
+  }
+
+  const destination = replaceBasename(f.path, newName)
+  if (files.value.some((entry) => entry.path === destination)) {
+    banner.show('Rename blocked', `${destination} already exists.`)
+    return
+  }
+
+  try {
+    await renameFile(f.path, destination)
+    toast.show(`Renamed to ${newName}`)
+    await load()
+  } catch (e) {
+    banner.show('Failed to rename file', errMsg(e))
+  }
+}
+
 async function pr(f: FileInfo) {
   try {
-    await startPrint(f.path)
+    await printerWs.startPrint(f.path)
     toast.show(`Printing ${f.path}`)
   } catch (e) {
     banner.show('Failed to start print', errMsg(e))
@@ -60,10 +89,11 @@ async function up() {
     await load()
   } catch (e) {
     banner.show('Failed to upload file', errMsg(e))
+  } finally {
+    uploading.value = false
+    if (inp.value) inp.value.value = ''
+    selectedFile.value = null
   }
-  uploading.value = false
-  if (inp.value) inp.value.value = ''
-  selectedFile.value = null
 }
 
 onMounted(load)
@@ -118,15 +148,18 @@ onMounted(load)
 
       <ul v-else class="divide-y divide-[var(--border)]">
         <li v-for="f in files" :key="f.path" class="px-7 lg:px-8 py-4 list-row-hover group">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-2">
             <div class="flex-1 min-w-0">
               <div class="row-title" :title="f.path">{{ splitPath(f.path) }}</div>
               <div class="row-meta">
                 {{ fmtSize(f.size) }} · {{ fmtDate(f.modified) }}
               </div>
             </div>
-            <button class="btn btn-primary btn-sm" @click="pr(f)">Print</button>
-            <button class="btn btn-danger btn-sm" @click="del(f)">Delete</button>
+            <div class="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
+              <button class="btn btn-primary btn-sm" @click="pr(f)">Print</button>
+              <button class="btn btn-sm" :disabled="!f.permissions.includes('w')" @click="rename(f)">Rename</button>
+              <button class="btn btn-danger btn-sm" :disabled="!f.permissions.includes('w')" @click="del(f)">Delete</button>
+            </div>
           </div>
         </li>
       </ul>

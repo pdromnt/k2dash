@@ -14,9 +14,9 @@ Connects directly over your local network.
 - **CFS filament display** — all 4 CFS slots + spool holder with color swatches, material type, vendor, temperature range, humidity & temperature pills
 - **Live webcam** — WebRTC stream from the printer's camera (Creality base64 JSON signaling, port 8000)
 - **Controls** — jog pad with 10–50mm variable slider, temperature setpoints, 3-fan readouts (part/aux/chamber), LED toggle, emergency stop, quick G-code commands
-- **File management** — upload (Creality endpoint), browse, start print, delete G-code files
+- **File management** — upload (Creality endpoint), browse, rename, start print, delete G-code files
 - **G-code console** — send commands over WebSocket with HTTP fallback, live responses, command history
-- **Print history** — list of past prints with duration, filament used, formatted status with color coding
+- **Print history** — list and clean up past prints with duration, filament used, and formatted status
 - **Timelapse** — list saved timelapses, download, delete via WebSocket
 - **Auto-reconnect** — exponential backoff (1s → 30s max), offline screen after 15s, red reconnecting banner with live counter
 

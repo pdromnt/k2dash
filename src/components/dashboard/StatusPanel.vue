@@ -31,10 +31,12 @@ function togglePill() {
 // the file is in place. Single retry so a genuinely missing file
 // (no print running) doesn't loop forever.
 let thumbnailRetried = false
+let thumbnailRetryTimer: ReturnType<typeof setTimeout> | null = null
 function onThumbnailError(e: Event) {
   if (thumbnailRetried) return
   thumbnailRetried = true
-  setTimeout(() => {
+  thumbnailRetryTimer = setTimeout(() => {
+    thumbnailRetryTimer = null
     // Force a re-render by appending a unique cache-buster. The
     // browser's broken-image state clears on src reassignment.
     const img = e.target as HTMLImageElement
@@ -47,7 +49,11 @@ function resetThumbnailRetry() {
 }
 
 onMounted(() => document.addEventListener('click', dismiss))
-onUnmounted(() => { document.removeEventListener('click', dismiss); clearTimeout(pillTimer) })
+onUnmounted(() => {
+  document.removeEventListener('click', dismiss)
+  clearTimeout(pillTimer)
+  if (thumbnailRetryTimer) clearTimeout(thumbnailRetryTimer)
+})
 
 const rawFname = computed(() => splitPath(printer.printFilename))
 

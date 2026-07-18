@@ -31,6 +31,8 @@ export function usePrinter() {
   let pollTimer: ReturnType<typeof setInterval> | undefined
   let lastPoll = 0
 
+  const hasActiveJob = () => store.state === 'printing' || store.state === 'preparing' || store.state === 'paused'
+
   async function pollStatus() {
     const now = Date.now()
     if (now - lastPoll < MIN_POLL_GAP_MS) return
@@ -59,12 +61,12 @@ export function usePrinter() {
   }
 
   // The firmware serves the current print preview at a fixed URL and
-  // updates the PNG in place as the print progresses. No polling
-  // needed — the browser cache is fine. The filename is appended as a
-  // cache-buster so a new print forces a fetch (otherwise a hot-reload
-  // mid-print would show a stale image from the previous run).
+  // updates the PNG in place as the print progresses. The state is a
+  // fallback cache key because Creality commonly sends the print-start
+  // transition before it sends the filename.
   function startThumbnail() {
-    store.thumbnailUrl = `${THUMBNAIL_URL}?cb=${encodeURIComponent(store.printFilename)}`
+    const cacheKey = store.printFilename || `${store.state}-${Date.now()}`
+    store.thumbnailUrl = `${THUMBNAIL_URL}?cb=${encodeURIComponent(cacheKey)}`
   }
   function stopThumbnail() {
     store.thumbnailUrl = ''
@@ -76,7 +78,7 @@ export function usePrinter() {
       // Resume the thumbnail stream if a job is already running (the
       // printFilename watcher only fires on changes, so an active job
       // present at mount time would otherwise never kick off).
-      if (store.printFilename) startThumbnail()
+      if (hasActiveJob()) startThumbnail()
     }
   });
 
@@ -90,9 +92,15 @@ export function usePrinter() {
     if (active) { stopPolling() } else { startPolling() }
   })
 
-  // On print start, do a one-shot poll to grab filename and layers
+  // On print start, show the fixed Creality preview immediately and do a
+  // one-shot Moonraker poll for fields the WS may not have sent yet.
   watch(() => store.state, (s) => {
-    if (s === 'printing' || s === 'preparing') pollStatus()
+    if (s === 'printing' || s === 'preparing' || s === 'paused') {
+      startThumbnail()
+      if (!store.wsActive) pollStatus()
+    } else {
+      stopThumbnail()
+    }
   })
 
   // Refresh the thumbnail stream while a job is active. The URL is
@@ -103,6 +111,6 @@ export function usePrinter() {
   // would miss it).
   watch(() => store.printFilename, (filename) => {
     if (filename) startThumbnail()
-    else stopThumbnail()
+    else if (!hasActiveJob()) stopThumbnail()
   }, { immediate: true })
 }

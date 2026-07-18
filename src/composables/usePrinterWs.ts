@@ -1,10 +1,41 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import type { CfsSlot, TimelapseFile, PrinterState } from '@/stores/printer'
 import { getWsUrl } from '@/utils/env'
 import { normalizeGcodePath } from '@/utils/format'
+import {
+  cancelPrint as cancelPrintMoonraker,
+  emergencyStop as emergencyStopMoonraker,
+  pausePrint as pausePrintMoonraker,
+  resumePrint as resumePrintMoonraker,
+  sendGcode as sendGcodeMoonraker,
+  startPrint as startPrintMoonraker,
+} from '@/api/moonraker'
+import {
+  cancelCommand,
+  deleteTimelapseCommand,
+  gcodeCommand,
+  hasTimelapseDeleteResult,
+  hasTimelapseList,
+  initialStateRequest,
+  pauseCommand,
+  resumeCommand,
+  startPrintCommand,
+  statusRequest,
+  timelapseListRequest,
+  type CrealityMessage,
+} from '@/printer/crealityProtocol'
 
 type WsSubscriber = (msg: Record<string, unknown>) => void
+type MessagePredicate = (msg: Record<string, unknown>) => boolean
+type CommandTransport = 'websocket' | 'moonraker'
+
+interface PendingResponse {
+  predicate: MessagePredicate
+  resolve: (msg: Record<string, unknown>) => void
+  reject: (error: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
@@ -25,6 +56,7 @@ const DEVICE_STATE_MAP: Record<number, string> = {
 let ws: WebSocket | null = null
 const connected = ref(false)
 const subscribers = new Set<WsSubscriber>()
+const pendingResponses = new Set<PendingResponse>()
 let boxsTimer: ReturnType<typeof setInterval> | null = null
 let statusTimer: ReturnType<typeof setInterval> | null = null
 let retryCount = 0
@@ -39,10 +71,46 @@ function backoff(): number {
   return Math.min(INITIAL_BACKOFF_MS * Math.pow(2, retryCount), MAX_BACKOFF_MS)
 }
 
-function send(msg: Record<string, unknown>) {
-  if (ws?.readyState === WebSocket.OPEN) {
+function send(msg: CrealityMessage): boolean {
+  if (ws?.readyState !== WebSocket.OPEN) return false
+  try {
     ws.send(JSON.stringify(msg))
+    return true
+  } catch {
+    return false
   }
+}
+
+function rejectPendingResponses(error: Error) {
+  for (const pending of pendingResponses) {
+    clearTimeout(pending.timer)
+    pending.reject(error)
+  }
+  pendingResponses.clear()
+}
+
+function requestMessage(
+  msg: CrealityMessage,
+  predicate: MessagePredicate,
+  timeoutMs = 5000,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const pending: PendingResponse = {
+      predicate,
+      resolve,
+      reject,
+      timer: setTimeout(() => {
+        pendingResponses.delete(pending)
+        reject(new Error('Printer response timed out'))
+      }, timeoutMs),
+    }
+    pendingResponses.add(pending)
+    if (!send(msg)) {
+      clearTimeout(pending.timer)
+      pendingResponses.delete(pending)
+      reject(new Error('Printer WebSocket not connected'))
+    }
+  })
 }
 
 function stopTimers() {
@@ -61,12 +129,20 @@ function scheduleRetry() {
 }
 
 function parseAndDispatch(msg: Record<string, unknown>) {
-  if (msg.nozzleTemp !== undefined || msg.deviceState !== undefined) {
-    parseStatus(msg)
-  }
+  // Creality sends partial updates: the print-state transition and the
+  // current filename commonly arrive in different frames. CrealityPrint's
+  // setDataFromDevice applies every property independently, so do the same
+  // here. parseStatus itself only changes fields that are present.
+  parseStatus(msg)
   if (msg.boxsInfo) parseBoxsInfo(msg.boxsInfo as Record<string, unknown>)
   if (msg.retGcodeFileInfo2) parseFileList(msg.retGcodeFileInfo2)
   if (msg.elapseVideoList) parseTimelapseList(msg.elapseVideoList)
+  for (const pending of [...pendingResponses]) {
+    if (!pending.predicate(msg)) continue
+    clearTimeout(pending.timer)
+    pendingResponses.delete(pending)
+    pending.resolve(msg)
+  }
   for (const sub of subscribers) sub(msg)
 }
 
@@ -80,7 +156,6 @@ function connect() {
   try {
     const socket = new WebSocket(getWsUrl())
     ws = socket
-    window.__printerWs = socket
 
     socket.addEventListener('open', () => {
       connected.value = true
@@ -89,19 +164,11 @@ function connect() {
       store.wsActive = true
 
       // Full initial state request (like CrealityPrint's ReqInit)
-      send({
-        method: 'get',
-        params: {
-          reqGcodeFile: 1,
-          reqGcodeList: 1,
-          reqMaterials: 1,
-          boxsInfo: 1,
-          boxConfig: 1,
-        },
-      })
+      send(initialStateRequest())
+      send(statusRequest())
 
       statusTimer = setInterval(() => {
-        send({ method: 'get', params: { reqPrintObjects: 1, reqGcodeFile: 1 } })
+        send(statusRequest())
       }, STATUS_POLL_MS)
 
       boxsTimer = setInterval(() => {
@@ -117,10 +184,13 @@ function connect() {
     })
 
     socket.addEventListener('close', () => {
+      if (ws !== socket) return
+      ws = null
       connected.value = false
       store.connected = false
       store.wsActive = false
       stopTimers()
+      rejectPendingResponses(new Error('Printer WebSocket disconnected'))
       scheduleRetry()
     })
 
@@ -140,6 +210,7 @@ function connect() {
 
 function parseStatus(msg: Record<string, unknown>) {
   const store = usePrinterStore()
+  const wasActive = store.state === 'printing' || store.state === 'preparing' || store.state === 'paused'
   const n = (v: unknown): number | undefined => {
     if (typeof v === 'number') return v
     if (typeof v === 'string') { const p = parseFloat(v); return isNaN(p) ? undefined : p }
@@ -154,6 +225,13 @@ function parseStatus(msg: Record<string, unknown>) {
     if (msg.deviceState === 'idle') clearPrintJob()
   } else if (typeof msg.state === 'string') {
     store.state = msg.state as PrinterState
+  }
+
+  const isActive = store.state === 'printing' || store.state === 'preparing' || store.state === 'paused'
+  if (!wasActive && isActive) {
+    // A state push often precedes printFileName. Ask for the current file
+    // immediately instead of waiting for the five-second status timer.
+    send(statusRequest())
   }
 
   // Error info: K2 Plus pushes a nested `err` object when the printer
@@ -191,7 +269,10 @@ function parseStatus(msg: Record<string, unknown>) {
 
   const pp = n(msg.printProgress)
   if (pp !== undefined) store.printProgress = pp <= 1 ? Math.round(pp * 100) : Math.round(pp)
-  if (typeof msg.printFileName === 'string') store.printFilename = normalizeGcodePath(msg.printFileName)
+  if (typeof msg.printFileName === 'string') {
+    store.printFilename = normalizeGcodePath(msg.printFileName)
+    if (store.printFilename && fileList.value.length) matchEstimatedData(fileList.value)
+  }
   const pjt = n(msg.printJobTime); if (pjt !== undefined) store.printDuration = pjt
   const plt = n(msg.printLeftTime); if (plt !== undefined) store.printLeftTime = plt
   const l = n(msg.layer); if (l !== undefined) store.currentLayer = Math.round(l / LAYER_DIVIDER)
@@ -328,27 +409,74 @@ function matchEstimatedData(files: Array<Record<string, unknown>>) {
 export function usePrinterWs() {
   const store = usePrinterStore()
 
-  // When printFilename changes, try to match against the cached file list
-  watch(() => store.printFilename, (name) => {
-    if (name && fileList.value.length) matchEstimatedData(fileList.value)
-  })
+  async function withMoonrakerFallback(
+    message: CrealityMessage,
+    fallback: () => Promise<unknown>,
+  ): Promise<CommandTransport> {
+    if (send(message)) return 'websocket'
+    await fallback()
+    return 'moonraker'
+  }
 
-  // Manual refresh of the timelapse list. The printer doesn't push
-  // timelapse changes over the WS (CrealityPrint triggers this from
-  // the UI on demand), so we only fetch on user action.
-  function refreshTimelapses() {
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ method: 'get', params: { reqElapseVideoList: 1 } }))
+  function sendGcodeCommand(command: string): Promise<CommandTransport> {
+    return withMoonrakerFallback(gcodeCommand(command), () => sendGcodeMoonraker(command))
+  }
+
+  function pausePrint(): Promise<CommandTransport> {
+    return withMoonrakerFallback(pauseCommand(), pausePrintMoonraker)
+  }
+
+  function resumePrint(): Promise<CommandTransport> {
+    return withMoonrakerFallback(resumeCommand(), resumePrintMoonraker)
+  }
+
+  function cancelPrint(): Promise<CommandTransport> {
+    return withMoonrakerFallback(cancelCommand(), cancelPrintMoonraker)
+  }
+
+  function emergencyStop(): Promise<CommandTransport> {
+    return withMoonrakerFallback(gcodeCommand('M112'), emergencyStopMoonraker)
+  }
+
+  function startPrint(path: string): Promise<CommandTransport> {
+    return withMoonrakerFallback(startPrintCommand(path), () => startPrintMoonraker(path))
+  }
+
+  async function refreshTimelapses() {
+    await requestMessage(timelapseListRequest(), hasTimelapseList)
+    return store.timelapseFiles
+  }
+
+  async function deleteTimelapse(file: string) {
+    // Recent firmware acknowledges ctrlVideoFiles. Older versions do not,
+    // so an acknowledgement timeout is non-fatal; the refreshed list is
+    // the source of truth either way.
+    await requestMessage(deleteTimelapseCommand(file), hasTimelapseDeleteResult, 2500).catch(() => undefined)
+    await refreshTimelapses()
+    if (store.timelapseFiles.some((entry) => entry.video === file)) {
+      throw new Error(`Printer did not delete ${file}`)
     }
   }
 
-  return { connected, connect, onMessage, refreshTimelapses }
+  return {
+    connected,
+    connect,
+    onMessage,
+    sendGcodeCommand,
+    pausePrint,
+    resumePrint,
+    cancelPrint,
+    emergencyStop,
+    startPrint,
+    refreshTimelapses,
+    deleteTimelapse,
+  }
 }
 
 /**
  * Subscribe to every parsed WS message. Returns an unsubscribe function.
  * Used by useConsole to receive G-code responses without registering a
- * second handler on window.__printerWs.
+ * second handler on the socket.
  */
 function onMessage(fn: WsSubscriber): () => void {
   subscribers.add(fn)

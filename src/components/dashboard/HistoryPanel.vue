@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { getHistoryList, type HistoryJob } from '@/api/moonraker'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { clearHistory, deleteHistoryJob, getHistoryList, type HistoryJob } from '@/api/moonraker'
 import { useBannerStore } from '@/stores/banner'
+import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
 import { fmtDur, fmtDate, fmtFilamentMeters, errMsg } from '@/utils/format'
 
 const jobs = ref<HistoryJob[]>([])
 const loading = ref(false)
+const mutating = ref(false)
 const banner = useBannerStore()
+const toast = useToastStore()
 const printer = usePrinterStore()
+const historyHasActiveJob = computed(() => jobs.value.some((job) => job.status === 'in_progress'))
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const statusClass = (s: string) => {
   if (s === 'completed') return 'state-printing'
@@ -31,6 +36,36 @@ async function load() {
   loading.value = false
 }
 
+async function removeJob(job: HistoryJob) {
+  if (job.status === 'in_progress') return
+  if (!confirm(`Remove ${job.filename} from print history?`)) return
+  mutating.value = true
+  try {
+    await deleteHistoryJob(job.job_id)
+    toast.show('History entry removed')
+    await load()
+  } catch (e) {
+    banner.show('Failed to remove history entry', errMsg(e))
+  } finally {
+    mutating.value = false
+  }
+}
+
+async function removeAll() {
+  if (!jobs.value.length || historyHasActiveJob.value) return
+  if (!confirm('Clear all print history? This cannot be undone.')) return
+  mutating.value = true
+  try {
+    await clearHistory()
+    toast.show('Print history cleared')
+    await load()
+  } catch (e) {
+    banner.show('Failed to clear history', errMsg(e))
+  } finally {
+    mutating.value = false
+  }
+}
+
 onMounted(load)
 
 // Refresh when a print transitions from active to done so an
@@ -42,8 +77,16 @@ watch(() => printer.state, (newState, oldState) => {
   const isInactive = newState === 'complete' || newState === 'cancelled'
     || newState === 'error' || newState === 'idle'
   if (wasActive && isInactive) {
-    setTimeout(load, 2000)
+    if (refreshTimer) clearTimeout(refreshTimer)
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null
+      load()
+    }, 2000)
   }
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearTimeout(refreshTimer)
 })
 </script>
 
@@ -53,6 +96,13 @@ watch(() => printer.state, (newState, oldState) => {
       <div class="t-title">History</div>
       <div class="flex items-center gap-3">
         <span v-if="!loading && jobs.length > 0" class="t-mute font-mono">{{ jobs.length }} jobs</span>
+        <button
+          v-if="jobs.length > 0"
+          class="btn btn-danger btn-sm"
+          :disabled="loading || mutating || historyHasActiveJob"
+          :title="historyHasActiveJob ? 'Wait for the active print to finish' : 'Clear all print history'"
+          @click="removeAll"
+        >Clear</button>
         <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload history">
           <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -83,6 +133,12 @@ watch(() => printer.state, (newState, oldState) => {
             <span class="text-[11px] font-semibold uppercase tracking-wider" :class="statusClass(j.status)">
               {{ fmtStatus(j.status) }}
             </span>
+            <button
+              class="btn btn-danger btn-sm"
+              :disabled="mutating || j.status === 'in_progress'"
+              :title="j.status === 'in_progress' ? 'Cannot remove an active job' : 'Remove history entry'"
+              @click="removeJob(j)"
+            >Delete</button>
           </div>
         </li>
       </ul>

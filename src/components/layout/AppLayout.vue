@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinterWs } from '@/composables/usePrinterWs'
-import { computed, onMounted, ref, watch, defineAsyncComponent } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, defineAsyncComponent } from 'vue'
 import { checkConnection } from '@/api/creality'
 import AppBanner from '@/components/layout/AppBanner.vue'
 const ConfigModal = defineAsyncComponent(() => import('@/components/config/ConfigModal.vue'))
@@ -78,6 +78,12 @@ onMounted(async () => {
     printer.connected = false
   }
   printerWs.connect()
+})
+
+onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer)
+  tickTimer = null
+  offlineSince = null
 })
 </script>
 
