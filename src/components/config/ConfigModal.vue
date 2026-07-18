@@ -4,7 +4,7 @@ import { getConfigFiles, getConfigFile, saveConfigFile, deleteConfigFile, restar
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
-import { errMsg, fmtSize } from '@/utils/format'
+import { errMsg, fmtSize, splitPath } from '@/utils/format'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
@@ -78,6 +78,7 @@ const FileRow = defineComponent({
     name: { type: String, required: true },
     size: { type: Number, default: 0 },
     selected: { type: Boolean, default: false },
+    deleteDisabled: { type: Boolean, default: false },
     padClass: { type: String, required: true },
     openFile: { type: Function, required: true },
     deleteFile: { type: Function, required: true },
@@ -88,7 +89,7 @@ const FileRow = defineComponent({
         class: ['flex items-center group', props.selected ? 'bg-[var(--green)]/10' : ''],
       }, [
         h('button', {
-          class: ['flex-1 text-left py-2 text-[13px] hover:bg-white/[0.02] transition-colors min-w-0', props.padClass],
+          class: ['flex-1 text-left py-2 text-[13px] group-hover:bg-white/[0.02] transition-colors min-w-0', props.padClass],
           onClick: () => props.openFile(props.path),
         }, [
           h('div', { class: 'flex items-center gap-2' }, [
@@ -98,19 +99,26 @@ const FileRow = defineComponent({
           h('div', { class: 't-mono text-[10px] mt-0.5 ml-[25px]' }, fmtSize(props.size)),
         ]),
         h('button', {
-          class: 'shrink-0 px-2 py-2.5 text-[var(--text-mute)] hover:text-[var(--red)] transition-colors opacity-0 group-hover:opacity-100',
-          onClick: () => props.deleteFile(props.path),
-          'aria-label': 'Delete',
-          title: 'Delete',
+          class: [
+            'shrink-0 flex items-center gap-1.5 mx-2 px-3 py-2 rounded-md border text-[12px] font-medium transition-all',
+            props.deleteDisabled
+              ? 'border-transparent text-[var(--text-mute)] opacity-35 cursor-not-allowed'
+              : 'border-transparent text-[var(--text-mute)] hover:text-[var(--red)] hover:border-[rgba(224,85,85,0.35)] hover:bg-[rgba(224,85,85,0.1)]',
+          ],
+          disabled: props.deleteDisabled,
+          onClick: () => { if (!props.deleteDisabled) props.deleteFile(props.path) },
+          'aria-label': `Delete ${props.name}`,
+          title: props.deleteDisabled ? "Can't delete config files while printing" : `Delete ${props.name}`,
         }, [
           h('svg', {
-            class: 'w-3.5 h-3.5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', 'stroke-width': '1.5',
+            class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', 'stroke-width': '1.75',
           }, [
             h('path', {
               'stroke-linecap': 'round', 'stroke-linejoin': 'round',
               d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
             }),
           ]),
+          h('span', 'Delete'),
         ]),
       ])
   },
@@ -363,7 +371,12 @@ async function saveFile(): Promise<boolean> {
 }
 
 async function delFile(p: string) {
-  if (!confirm(`Delete ${p}? This cannot be undone.`)) return
+  if (jobActive.value) return
+  const filename = splitPath(p)
+  const confirmation = window.prompt(
+    `Permanently delete “${p}”?\n\nThis may break the printer configuration and cannot be undone. Type “${filename}” to confirm.`,
+  )
+  if (confirmation !== filename) return
   try {
     await deleteConfigFile(p)
     toast.show(`Deleted ${p}`)
@@ -448,6 +461,7 @@ onUnmounted(() => {
                         :name="sub.name"
                         :size="sub.size"
                         :selected="selected === sub.path"
+                        :delete-disabled="jobActive"
                         pad-class="pl-12 pr-3"
                         :open-file="openFile"
                         :delete-file="delFile"
@@ -461,6 +475,7 @@ onUnmounted(() => {
                     :name="entry.name"
                     :size="entry.size"
                     :selected="selected === entry.path"
+                    :delete-disabled="jobActive"
                     pad-class="px-5"
                     :open-file="openFile"
                     :delete-file="delFile"
