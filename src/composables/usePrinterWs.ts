@@ -18,6 +18,7 @@ import {
   hasTimelapseDeleteResult,
   hasTimelapseList,
   initialStateRequest,
+  lightCommand,
   normalizeCrealityLayer,
   normalizeCrealityProgress,
   pauseCommand,
@@ -428,6 +429,17 @@ export function usePrinterWs() {
     return withMoonrakerFallback(gcodeCommand(command), () => sendGcodeMoonraker(command))
   }
 
+  async function setLight(enabled: boolean): Promise<CommandTransport> {
+    const transport = await withMoonrakerFallback(
+      lightCommand(enabled),
+      () => sendGcodeMoonraker(`SET_PIN PIN=LED VALUE=${enabled ? 1 : 0}`),
+    )
+    // The native WS normally echoes lightSw, but updating immediately keeps
+    // the control responsive on firmware versions that delay that push.
+    store.ledState = enabled
+    return transport
+  }
+
   function pausePrint(): Promise<CommandTransport> {
     return withMoonrakerFallback(pauseCommand(), pausePrintMoonraker)
   }
@@ -469,6 +481,7 @@ export function usePrinterWs() {
     connect,
     onMessage,
     sendGcodeCommand,
+    setLight,
     pausePrint,
     resumePrint,
     cancelPrint,

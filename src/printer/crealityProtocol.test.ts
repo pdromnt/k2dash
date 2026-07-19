@@ -3,6 +3,7 @@ import {
   cancelCommand,
   deleteTimelapseCommand,
   gcodeCommand,
+  lightCommand,
   normalizeCrealityLayer,
   normalizeCrealityProgress,
   pauseCommand,
@@ -53,6 +54,8 @@ describe('Creality printer protocol', () => {
 
   it('builds G-code and timelapse messages', () => {
     expect(gcodeCommand('M104 S0')).toEqual({ method: 'set', params: { gcodeCmd: 'M104 S0' } })
+    expect(lightCommand(true)).toEqual({ method: 'set', params: { lightSw: 1 } })
+    expect(lightCommand(false)).toEqual({ method: 'set', params: { lightSw: 0 } })
     expect(timelapseListRequest()).toEqual({ method: 'get', params: { reqElapseVideoList: 1 } })
     expect(deleteTimelapseCommand('print.mp4')).toEqual({
       method: 'set',

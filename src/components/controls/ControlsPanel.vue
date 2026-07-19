@@ -13,6 +13,7 @@ const printerWs = usePrinterWs()
 
 const jog = ref(10)
 const fanSliders = ref([printer.fanPart, printer.fanAux, printer.fanChamber])
+const ledBusy = ref(false)
 
 watch(() => [printer.fanPart, printer.fanAux, printer.fanChamber], ([p, a, c]) => {
   fanSliders.value = [p, a, c]
@@ -95,8 +96,17 @@ async function setFan(pin: number, pct: number) {
 }
 
 async function toggleLed() {
-  const state = printer.ledState ? 'OFF' : 'ON'
-  await cmd(`SET_PIN PIN=LED VALUE=${printer.ledState ? 0 : 1}`, `LED ${state}`)
+  if (ledBusy.value) return
+  const enabled = !printer.ledState
+  ledBusy.value = true
+  try {
+    await printerWs.setLight(enabled)
+    toast.show(`LED ${enabled ? 'ON' : 'OFF'} · OK`)
+  } catch (e) {
+    banner.show('Failed to toggle chamber light', errMsg(e))
+  } finally {
+    ledBusy.value = false
+  }
 }
 
 interface HeaterConfig {
@@ -271,8 +281,8 @@ function jogGradient(value: number) {
           <span class="text-[14px] font-medium uppercase tracking-wider" :class="printer.ledState ? 'text-[var(--green)]' : 'text-[var(--text-dim)]'">
             Chamber {{ printer.ledState ? 'ON' : 'OFF' }}
           </span>
-          <button class="btn btn-sm ml-auto" :class="printer.ledState ? 'btn-primary' : ''" @click="toggleLed()">
-            Turn {{ printer.ledState ? 'off' : 'on' }}
+          <button class="btn btn-sm ml-auto" :class="printer.ledState ? 'btn-primary' : ''" :disabled="ledBusy" @click="toggleLed()">
+            {{ ledBusy ? 'Switching…' : `Turn ${printer.ledState ? 'off' : 'on'}` }}
           </button>
         </div>
 

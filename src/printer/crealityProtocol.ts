@@ -10,6 +10,7 @@ export interface CrealityGetParams {
 
 export interface CrealitySetParams {
   gcodeCmd?: string
+  lightSw?: 0 | 1
   pause?: 0 | 1
   stop?: 1
   opGcodeFile?: string
@@ -57,6 +58,11 @@ export const timelapseListRequest = (): CrealityMessage => ({
 export const gcodeCommand = (command: string): CrealityMessage => ({
   method: 'set',
   params: { gcodeCmd: command },
+})
+
+export const lightCommand = (enabled: boolean): CrealityMessage => ({
+  method: 'set',
+  params: { lightSw: enabled ? 1 : 0 },
 })
 
 export const pauseCommand = (): CrealityMessage => ({ method: 'set', params: { pause: 1 } })
