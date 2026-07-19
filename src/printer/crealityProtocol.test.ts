@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cancelCommand,
   deleteTimelapseCommand,
+  fanGcode,
   gcodeCommand,
   lightCommand,
   normalizeCrealityLayer,
@@ -61,5 +62,11 @@ describe('Creality printer protocol', () => {
       method: 'set',
       params: { ctrlVideoFiles: { cmd: 'remove', printId: '', file: 'print.mp4' } },
     })
+  })
+
+  it('maps the K2 Plus fans without swapping case and side', () => {
+    expect(fanGcode('part', 100)).toBe('M106 P0 S255')
+    expect(fanGcode('case', 50)).toBe('M106 P1 S128')
+    expect(fanGcode('side', 50)).toBe('M106 P2 S128')
   })
 })

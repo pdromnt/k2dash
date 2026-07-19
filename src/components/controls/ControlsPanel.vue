@@ -4,6 +4,7 @@ import { usePrinterStore } from '@/stores/printer'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { fanGcode, type CrealityFan } from '@/printer/crealityProtocol'
 import { errMsg } from '@/utils/format'
 
 const printer = usePrinterStore()
@@ -92,10 +93,8 @@ function stopPrinter() {
   return runPrintAction('Emergency stop sent', printerWs.emergencyStop)
 }
 
-async function setFan(pin: number, pct: number) {
-  // CrealityPrint maps UI fans as part=P0, case=P2, auxiliary=P1.
-  const crealityFan = [0, 2, 1][pin]
-  await cmd(`M106 P${crealityFan} S${Math.round(pct * 2.55)}`, `Fan \u00b7 ${Math.round(pct)}%`)
+async function setFan(fan: CrealityFan, pct: number) {
+  await cmd(fanGcode(fan, pct), `Fan \u00b7 ${Math.round(pct)}%`)
 }
 
 async function toggleLed() {
@@ -135,10 +134,10 @@ function fanLabel(speed: number): string {
 }
 
 const fans = [
-  { label: 'Part' },
-  { label: 'Case' },
-  { label: 'Side' },
-]
+  { label: 'Part', type: 'part' },
+  { label: 'Case', type: 'case' },
+  { label: 'Side', type: 'side' },
+] satisfies Array<{ label: string; type: CrealityFan }>
 
 interface UtilityCommand {
   label: string
@@ -367,7 +366,7 @@ function jogGradient(value: number) {
               v-model="fanSliders[i]"
               class="w-full range-slider"
               :style="{ '--tw-accent': fanGradient(fanSliders[i]) }"
-              @change="setFan(i, fanSliders[i] * 100)"
+              @change="setFan(f.type, fanSliders[i] * 100)"
             />
           </div>
         </div>

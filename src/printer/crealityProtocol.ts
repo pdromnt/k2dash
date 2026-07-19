@@ -26,6 +26,19 @@ export type CrealityMessage =
   | { method: 'get'; params: CrealityGetParams }
   | { method: 'set'; params: CrealitySetParams }
 
+export type CrealityFan = 'part' | 'case' | 'side'
+
+const CREALITY_FAN_PINS: Record<CrealityFan, number> = {
+  part: 0,
+  case: 1,
+  side: 2,
+}
+
+export function fanGcode(fan: CrealityFan, percent: number): string {
+  const pwm = Math.round(255 * (Math.min(100, Math.max(0, percent)) / 100))
+  return `M106 P${CREALITY_FAN_PINS[fan]} S${pwm}`
+}
+
 export function normalizeCrealityProgress(progress: number): number {
   return Math.round(Math.min(100, Math.max(0, progress)))
 }
