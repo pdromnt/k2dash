@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
@@ -14,6 +14,7 @@ const printerWs = usePrinterWs()
 const jog = ref(10)
 const fanSliders = ref([printer.fanPart, printer.fanAux, printer.fanChamber])
 const ledBusy = ref(false)
+const jobActive = computed(() => printer.isPrinting || printer.isPaused)
 
 watch(() => [printer.fanPart, printer.fanAux, printer.fanChamber], ([p, a, c]) => {
   fanSliders.value = [p, a, c]
@@ -30,6 +31,7 @@ async function cmd(script: string, label?: string) {
 }
 
 async function allOff() {
+  if (jobActive.value) return
   try {
     await Promise.all([
       printerWs.sendGcodeCommand('M104 S0'),
@@ -43,6 +45,7 @@ async function allOff() {
 }
 
 async function setTemp(heater: string, temp: string) {
+  if (jobActive.value) return
   const t = parseFloat(temp)
   if (isNaN(t)) return
 
@@ -137,15 +140,105 @@ const fans = [
   { label: 'Side' },
 ]
 
-const quickCmds = [
+interface UtilityCommand {
+  label: string
+  gcode: string
+  confirmation?: string
+  warning?: string
+}
+
+const utilities: UtilityCommand[] = [
   { label: 'Motors off', gcode: 'M84' },
-  { label: 'Beep', gcode: 'M300' },
-  { label: 'Fan off', gcode: 'M106 S0' },
-  { label: 'Fan full', gcode: 'M106 S255' },
-  { label: 'Reset extruder', gcode: 'G92 E0' },
-  { label: 'Absolute position', gcode: 'G90' },
-  { label: 'Relative position', gcode: 'G91' },
+  {
+    label: 'Load filament',
+    gcode: 'LOAD_MATERIAL',
+    confirmation: 'Load filament? The printer may heat the nozzle and move filament.',
+  },
+  {
+    label: 'Unload filament',
+    gcode: 'QUIT_MATERIAL',
+    confirmation: 'Unload filament? The printer may heat the nozzle, cut, and retract filament.',
+  },
 ]
+
+const maintenanceCommands: UtilityCommand[] = [
+  {
+    label: 'Bed leveling',
+    gcode: 'G29',
+    confirmation: 'Run automatic bed leveling? This heats and moves the printer and may take several minutes.',
+  },
+  {
+    label: 'Input shaping',
+    gcode: 'INPUTSHAPER',
+    confirmation: 'Run input shaping calibration? The printer will home, move, vibrate, and save new calibration values.',
+  },
+  {
+    label: 'Belt calibration',
+    gcode: 'BELT_TENSION',
+    confirmation: 'Run belt calibration? Keep clear of the printer until it finishes.',
+  },
+  {
+    label: 'Z calibration',
+    gcode: 'Z_AXIS_CALIBRATION',
+    confirmation: 'Run Z-axis calibration? The printer will heat, home, clean the nozzle, and replace saved calibration values.',
+  },
+  {
+    label: 'Nozzle PID',
+    gcode: 'NOZZLE_PID',
+    warning: 'ONLY USE THIS IF NECESSARY',
+    confirmation: 'Run nozzle PID calibration at 230°C and save the result? Only continue if recalibration is necessary.',
+  },
+  {
+    label: 'Bed PID',
+    gcode: 'BEDPID',
+    warning: 'ONLY USE THIS IF NECESSARY',
+    confirmation: 'Run bed PID calibration at 100°C and save the result? Only continue if recalibration is necessary.',
+  },
+]
+
+async function runUtility(command: UtilityCommand) {
+  if (jobActive.value) return
+  if (command.confirmation && !window.confirm(command.confirmation)) return
+  await cmd(command.gcode, command.label)
+}
+
+function runIdleCommand(command: string) {
+  if (jobActive.value) return
+  return cmd(command)
+}
+
+const commandTip = reactive({ text: '', visible: false, x: 0, y: 0 })
+
+interface TooltipHoverEvent {
+  currentTarget: {
+    getBoundingClientRect: () => { left: number; width: number; bottom: number }
+  }
+}
+
+function isTooltipHoverEvent(event: unknown): event is TooltipHoverEvent {
+  if (!event || typeof event !== 'object' || !('currentTarget' in event)) return false
+  const target = event.currentTarget
+  return !!target
+    && typeof target === 'object'
+    && 'getBoundingClientRect' in target
+    && typeof target.getBoundingClientRect === 'function'
+}
+
+function showCommandTip(event: unknown, command: UtilityCommand) {
+  const text = jobActive.value
+    ? `Unavailable during an active print${command.warning ? ` · ${command.warning}` : ''}`
+    : command.warning
+  if (!text || !isTooltipHoverEvent(event)) return
+  const rect = event.currentTarget.getBoundingClientRect()
+  commandTip.text = text
+  commandTip.x = rect.left + rect.width / 2
+  commandTip.y = rect.bottom + 8
+  commandTip.visible = true
+}
+
+function hideCommandTip() {
+  commandTip.visible = false
+}
 
 // 3x3 jog grid: row 0 = Y+, row 1 = X- | home | X+, row 2 = Y-
 // Empty cells kept as nulls so the v-for stays declarative.
@@ -188,13 +281,17 @@ function jogGradient(value: number) {
     <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-8">
       <!-- Jog -->
       <div>
-        <div class="t-title mb-5">Jog</div>
+        <div class="flex items-center justify-between mb-5">
+          <div class="t-title">Jog</div>
+          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+        </div>
         <div class="flex items-center gap-3 mb-5">
           <span class="t-mute text-[11px] uppercase tracking-wider shrink-0">Distance</span>
           <input
             type="range"
             min="10" max="50" step="10"
             v-model.number="jog"
+            :disabled="jobActive"
             class="flex-1 range-slider"
             :style="{ '--tw-accent': jogGradient(jog) }"
           />
@@ -203,23 +300,23 @@ function jogGradient(value: number) {
         <div class="flex flex-col items-center gap-4">
           <div class="grid grid-cols-3 gap-2.5 w-full max-w-[220px]">
             <div></div>
-            <button class="jog-btn" @click="cmd(jogGrid[0].gcode())">{{ jogGrid[0].label }}</button>
+            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[0].gcode())">{{ jogGrid[0].label }}</button>
             <div></div>
-            <button class="jog-btn" @click="cmd(jogGrid[2].gcode())">{{ jogGrid[2].label }}</button>
-            <button class="jog-btn jog-home" @click="cmd(jogGrid[3].gcode())">{{ jogGrid[3].label }}</button>
-            <button class="jog-btn" @click="cmd(jogGrid[4].gcode())">{{ jogGrid[4].label }}</button>
+            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[2].gcode())">{{ jogGrid[2].label }}</button>
+            <button class="jog-btn jog-home" :disabled="jobActive" @click="runIdleCommand(jogGrid[3].gcode())">{{ jogGrid[3].label }}</button>
+            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[4].gcode())">{{ jogGrid[4].label }}</button>
             <div></div>
-            <button class="jog-btn" @click="cmd(jogGrid[1].gcode())">{{ jogGrid[1].label }}</button>
+            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[1].gcode())">{{ jogGrid[1].label }}</button>
             <div></div>
           </div>
           <div class="flex items-center gap-2.5">
-            <button class="jog-btn px-7" @click="cmd(`G91\nG1 Z${jog} F1200\nG90`)">Z+</button>
-            <button class="jog-btn px-7" @click="cmd(`G91\nG1 Z-${jog} F1200\nG90`)">Z−</button>
+            <button class="jog-btn px-7" :disabled="jobActive" @click="runIdleCommand(`G91\nG1 Z${jog} F1200\nG90`)">Z+</button>
+            <button class="jog-btn px-7" :disabled="jobActive" @click="runIdleCommand(`G91\nG1 Z-${jog} F1200\nG90`)">Z−</button>
           </div>
           <div class="flex items-center gap-2">
-            <button class="btn btn-ghost btn-sm" @click="cmd('G28 X Y')">Home XY</button>
-            <button class="btn btn-ghost btn-sm" @click="cmd('G28 Z')">Home Z</button>
-            <button class="btn btn-ghost btn-sm" @click="cmd('G28')">Home all</button>
+            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28 X Y')">Home XY</button>
+            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28 Z')">Home Z</button>
+            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28')">Home all</button>
           </div>
         </div>
       </div>
@@ -228,7 +325,10 @@ function jogGradient(value: number) {
       <div>
         <div class="flex items-center justify-between mb-5">
           <div class="t-title">Temperature</div>
-          <button class="btn btn-warn btn-sm" @click="allOff()">All off</button>
+          <div class="flex items-center gap-3">
+            <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+            <button class="btn btn-warn btn-sm" :disabled="jobActive" @click="allOff()">All off</button>
+          </div>
         </div>
         <div class="space-y-5">
           <div v-for="h in heaters" :key="h.label" class="flex items-center gap-4">
@@ -238,11 +338,11 @@ function jogGradient(value: number) {
                 <span class="t-mono text-[12px]">{{ h.current.toFixed(1) }}°C</span>
               </div>
               <div class="flex items-center gap-2.5">
-                <input v-model="h.model.value" type="number" class="input font-mono" :placeholder="String(h.defaultTarget)" />
+                <input v-model="h.model.value" type="number" class="input font-mono" :placeholder="String(h.defaultTarget)" :disabled="jobActive" />
                 <span class="t-mute text-[12px]">°C</span>
               </div>
             </div>
-            <button class="btn btn-primary btn-sm mt-6" @click="setTemp(h.heater, h.model.value)">Set</button>
+            <button class="btn btn-primary btn-sm mt-6" :disabled="jobActive" @click="setTemp(h.heater, h.model.value)">Set</button>
           </div>
         </div>
       </div>
@@ -288,19 +388,65 @@ function jogGradient(value: number) {
 
         <div class="divider mb-5" />
 
-        <div class="t-title mb-4">Quick commands</div>
+        <div class="flex items-center justify-between mb-4">
+          <div class="t-title">Utilities</div>
+          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+        </div>
         <div class="flex flex-wrap gap-2">
-          <button
-            v-for="c in quickCmds"
+          <span
+            v-for="c in utilities"
             :key="c.gcode"
-            class="btn btn-sm"
-            :title="c.gcode"
-            @click="cmd(c.gcode)"
+            class="inline-flex"
+            @mouseenter="showCommandTip($event, c)"
+            @mouseleave="hideCommandTip"
           >
-            {{ c.label }} <span class="ml-1 font-mono text-[var(--text-mute)]">{{ c.gcode }}</span>
-          </button>
+            <button class="btn btn-sm" :disabled="jobActive" @click="runUtility(c)">{{ c.label }}</button>
+          </span>
+        </div>
+
+        <div class="divider my-5" />
+
+        <div class="flex items-center justify-between mb-4">
+          <div class="t-title">Maintenance</div>
+          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="c in maintenanceCommands"
+            :key="c.gcode"
+            class="inline-flex"
+            @mouseenter="showCommandTip($event, c)"
+            @mouseleave="hideCommandTip"
+          >
+            <button
+              class="btn btn-sm"
+              :class="c.warning ? 'btn-warn' : ''"
+              :disabled="jobActive"
+              @click="runUtility(c)"
+            >{{ c.label }}</button>
+          </span>
         </div>
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <Transition name="command-tip">
+      <div
+        v-if="commandTip.visible && commandTip.text"
+        class="fixed z-[100] px-3 py-1.5 rounded-lg term-panel text-[12px] font-medium leading-snug whitespace-nowrap shadow-xl pointer-events-none"
+        :style="{ top: `${commandTip.y}px`, left: `${commandTip.x}px`, transform: 'translateX(-50%)' }"
+        role="tooltip"
+      >{{ commandTip.text }}</div>
+    </Transition>
+  </Teleport>
 </template>
+
+<style scoped>
+.command-tip-enter-active, .command-tip-leave-active {
+  transition: opacity 0.12s ease;
+}
+.command-tip-enter-from, .command-tip-leave-to {
+  opacity: 0;
+}
+</style>
