@@ -5,11 +5,11 @@
   <p>A cleaner alternative to the embedded dashboard—no cloud account or desktop app required.</p>
 
   <p>
-    <img alt="Vue 3" src="https://img.shields.io/badge/Vue_3-35495E?style=flat-square&logo=vuedotjs&logoColor=4FC08D" />
-    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-1f2937?style=flat-square&logo=typescript&logoColor=3178C6" />
-    <img alt="Vite" src="https://img.shields.io/badge/Vite-1f2937?style=flat-square&logo=vite&logoColor=646CFF" />
-    <img alt="Tailwind CSS 4" src="https://img.shields.io/badge/Tailwind_CSS_4-1f2937?style=flat-square&logo=tailwindcss&logoColor=06B6D4" />
-    <img alt="Pinia" src="https://img.shields.io/badge/Pinia-1f2937?style=flat-square&logoColor=FFD859" />
+    <img alt="Vue.js" src="https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D" />
+    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-1f2937?style=for-the-badge&logo=typescript&logoColor=3178C6" />
+    <img alt="Vite" src="https://img.shields.io/badge/Vite-1f2937?style=for-the-badge&logo=vite&logoColor=646CFF" />
+    <img alt="Tailwind CSS 4" src="https://img.shields.io/badge/Tailwind_CSS_4-1f2937?style=for-the-badge&logo=tailwindcss&logoColor=06B6D4" />
+    <img alt="Pinia" src="https://img.shields.io/badge/Pinia-FFD859?style=for-the-badge&logo=pinia&logoColor=111827" />
   </p>
 </div>
 
