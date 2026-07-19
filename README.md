@@ -148,5 +148,5 @@ Everything stays between your browser and printer on the local network.
 ---
 
 <div align="center">
-  Crafted by <a href="https://github.com/pdromnt">@pdromnt</a> · <a href="https://github.com/pdromnt/k2dash">Source</a>
+  Released into the public domain under <a href="UNLICENSE">The Unlicense</a>.
 </div>
