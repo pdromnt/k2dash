@@ -23,10 +23,10 @@ export interface CfsSlot {
  * (returned by `{method:'get', params:{reqElapseVideoList:1}}`).
  *
  * - `name`  : full path including the `gcodes/` prefix
- * - `video` : bare filename used by the printer's
- *             `/downloads/video/<video>` HTTP endpoint and by
- *             `ctrlVideoFiles.file` in the delete WS message
- * - `videoname`, `starttime`, `duration` are display-only metadata.
+ * - `video` : full printer filesystem path used by `ctrlVideoFiles.file`
+ *             in the delete WS message
+ * - `videoname`: filename used by `/downloads/video/<videoname>` over HTTP
+ * - `starttime`, `duration` are display-only metadata.
  */
 export interface TimelapseFile {
   name: string

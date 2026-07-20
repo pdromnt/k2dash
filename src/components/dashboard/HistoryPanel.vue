@@ -4,7 +4,7 @@ import { clearHistory, deleteHistoryJob, getHistoryList, type HistoryJob } from 
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
-import { fmtDur, fmtDate, fmtFilamentMeters, errMsg } from '@/utils/format'
+import { fmtDur, fmtDate, fmtFilamentMeters, errMsg, splitPath } from '@/utils/format'
 
 const jobs = ref<HistoryJob[]>([])
 const loading = ref(false)
@@ -12,13 +12,31 @@ const mutating = ref(false)
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-const historyHasActiveJob = computed(() => jobs.value.some((job) => job.status === 'in_progress'))
+const printerHasActiveJob = computed(() => printer.isPrinting || printer.isPaused)
+const activeHistoryJobId = computed(() => {
+  if (!printerHasActiveJob.value) return null
+  const inProgress = jobs.value.filter((job) => job.status === 'in_progress')
+  if (!inProgress.length) return null
+
+  const currentFilename = splitPath(printer.printFilename)
+  const matching = currentFilename
+    ? inProgress.filter((job) => splitPath(job.filename) === currentFilename)
+    : inProgress
+  const candidates = matching.length ? matching : inProgress
+  return candidates.reduce((latest, job) => job.start_time > latest.start_time ? job : latest).job_id
+})
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+const isActiveHistoryJob = (job: HistoryJob) => job.job_id === activeHistoryJobId.value
+const displayStatus = (job: HistoryJob) => (
+  job.status === 'in_progress' && !isActiveHistoryJob(job) ? 'interrupted' : job.status
+)
 
 const statusClass = (s: string) => {
   if (s === 'completed') return 'state-printing'
   if (s === 'in_progress') return 'text-[var(--text)]'
   if (s === 'cancelled') return 'state-paused'
+  if (s === 'interrupted') return 'state-paused'
   if (s === 'error') return 'state-error'
   return 'state-idle'
 }
@@ -37,7 +55,7 @@ async function load() {
 }
 
 async function removeJob(job: HistoryJob) {
-  if (job.status === 'in_progress') return
+  if (isActiveHistoryJob(job)) return
   if (!confirm(`Remove ${job.filename} from print history?`)) return
   mutating.value = true
   try {
@@ -52,7 +70,7 @@ async function removeJob(job: HistoryJob) {
 }
 
 async function removeAll() {
-  if (!jobs.value.length || historyHasActiveJob.value) return
+  if (!jobs.value.length || printerHasActiveJob.value) return
   if (!confirm('Clear all print history? This cannot be undone.')) return
   mutating.value = true
   try {
@@ -68,15 +86,15 @@ async function removeAll() {
 
 onMounted(load)
 
-// Refresh when a print transitions from active to done so an
-// "in_progress" job updates to completed / cancelled / error without
-// the user having to click Reload. Brief delay gives the printer a
-// moment to finalise the history record.
+// Refresh at both ends of a print. The start refresh identifies the real
+// active history row; the completion refresh picks up its final status.
+// A brief delay gives Moonraker time to persist the history change.
 watch(() => printer.state, (newState, oldState) => {
   const wasActive = oldState === 'printing' || oldState === 'preparing' || oldState === 'paused'
+  const isActive = newState === 'printing' || newState === 'preparing' || newState === 'paused'
   const isInactive = newState === 'complete' || newState === 'cancelled'
     || newState === 'error' || newState === 'idle'
-  if (wasActive && isInactive) {
+  if ((!wasActive && isActive) || (wasActive && isInactive)) {
     if (refreshTimer) clearTimeout(refreshTimer)
     refreshTimer = setTimeout(() => {
       refreshTimer = null
@@ -99,8 +117,8 @@ onUnmounted(() => {
         <button
           v-if="jobs.length > 0"
           class="btn btn-danger btn-sm"
-          :disabled="loading || mutating || historyHasActiveJob"
-          :title="historyHasActiveJob ? 'Wait for the active print to finish' : 'Clear all print history'"
+          :disabled="loading || mutating || printerHasActiveJob"
+          :title="printerHasActiveJob ? 'Wait for the active print to finish' : 'Clear all print history'"
           @click="removeAll"
         >Clear</button>
         <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload history">
@@ -130,13 +148,13 @@ onUnmounted(() => {
                 {{ fmtDate(j.start_time) }} · {{ fmtDur(j.print_duration) }} · {{ fmtFilamentMeters(j.filament_used) }}
               </div>
             </div>
-            <span class="text-[11px] font-semibold uppercase tracking-wider" :class="statusClass(j.status)">
-              {{ fmtStatus(j.status) }}
+            <span class="text-[11px] font-semibold uppercase tracking-wider" :class="statusClass(displayStatus(j))">
+              {{ fmtStatus(displayStatus(j)) }}
             </span>
             <button
               class="btn btn-danger btn-sm"
-              :disabled="mutating || j.status === 'in_progress'"
-              :title="j.status === 'in_progress' ? 'Cannot remove an active job' : 'Remove history entry'"
+              :disabled="mutating || isActiveHistoryJob(j)"
+              :title="isActiveHistoryJob(j) ? 'Cannot remove an active job' : 'Remove history entry'"
               @click="removeJob(j)"
             >Delete</button>
           </div>

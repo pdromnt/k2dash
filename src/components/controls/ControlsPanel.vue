@@ -322,10 +322,13 @@ function jogGradient(value: number) {
 
       <!-- Temperature -->
       <div>
-        <div class="flex items-center justify-between mb-5">
-          <div class="t-title">Temperature</div>
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <div class="t-title">Temperature</div>
+            <span v-if="jobActive" class="hidden max-sm:block mt-1 text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+          </div>
           <div class="flex items-center gap-3">
-            <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+            <span v-if="jobActive" class="max-sm:hidden text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
             <button class="btn btn-warn btn-sm" :disabled="jobActive" @click="allOff()">All off</button>
           </div>
         </div>
