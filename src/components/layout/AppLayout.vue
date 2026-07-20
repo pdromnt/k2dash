@@ -89,7 +89,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen bg-[var(--bg-page)]">
+  <div class="app-shell flex flex-col bg-[var(--bg-page)]">
     <ConfirmDialog />
     <!-- ── Top bar ── -->
     <header class="shrink-0 h-16 px-6 lg:px-10 flex items-center justify-between border-b border-[var(--border)]">

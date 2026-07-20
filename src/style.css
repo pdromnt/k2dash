@@ -32,6 +32,15 @@ html, body, #app {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Mobile browsers resize their visible viewport as the address/navigation
+   bars appear and disappear. `100vh` can retain the stale larger height and
+   expose a strip below the app; dynamic viewport units track the real area. */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100svh;
+}
+
 /* ── Card ───────────────────────────────────────────────── */
 .card {
   background: var(--bg-card);
