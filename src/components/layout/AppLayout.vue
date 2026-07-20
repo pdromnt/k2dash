@@ -4,6 +4,7 @@ import { usePrinterWs } from '@/composables/usePrinterWs'
 import { computed, onMounted, onUnmounted, ref, watch, defineAsyncComponent } from 'vue'
 import { checkConnection } from '@/api/creality'
 import AppBanner from '@/components/layout/AppBanner.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 const ConfigModal = defineAsyncComponent(() => import('@/components/config/ConfigModal.vue'))
 
 const printer = usePrinterStore()
@@ -89,6 +90,7 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col h-screen bg-[var(--bg-page)]">
+    <ConfirmDialog />
     <!-- ── Top bar ── -->
     <header class="shrink-0 h-16 px-6 lg:px-10 flex items-center justify-between border-b border-[var(--border)]">
       <div class="flex items-center gap-8">

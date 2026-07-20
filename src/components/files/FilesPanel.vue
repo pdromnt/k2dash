@@ -7,6 +7,7 @@ import { getFileList, deleteFile, renameFile, type FileInfo } from '@/api/moonra
 import { uploadFileKlipper4408 } from '@/api/creality'
 import { usePrinterWs } from '@/composables/usePrinterWs'
 import { fmtSize, fmtDate, splitPath, replaceBasename, errMsg } from '@/utils/format'
+import { requestConfirmation, requestTextInput } from '@/composables/useConfirmDialog'
 
 const banner = useBannerStore()
 const toast = useToastStore()
@@ -36,7 +37,14 @@ async function load() {
 
 async function del(f: FileInfo) {
   if (jobActive.value) return
-  if (!confirm(`Delete ${f.path}?`)) return
+  const confirmed = await requestConfirmation({
+    title: 'Delete G-code file?',
+    message: 'This permanently removes the file from the printer.',
+    subject: f.path,
+    confirmLabel: 'Delete permanently',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   try {
     await deleteFile(f.path)
     toast.show(`Deleted ${f.path}`)
@@ -49,7 +57,13 @@ async function del(f: FileInfo) {
 async function rename(f: FileInfo) {
   if (jobActive.value) return
   const currentName = splitPath(f.path)
-  const entered = window.prompt('Rename G-code file:', currentName)
+  const entered = await requestTextInput({
+    title: 'Rename G-code file',
+    message: 'Enter a new filename. Keep the G-code extension so the printer can recognize it.',
+    inputLabel: 'Filename',
+    initialValue: currentName,
+    confirmLabel: 'Rename file',
+  })
   if (entered === null) return
 
   const newName = entered.trim()

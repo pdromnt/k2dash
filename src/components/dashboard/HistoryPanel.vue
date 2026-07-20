@@ -5,6 +5,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
 import { fmtDur, fmtDate, fmtFilamentMeters, errMsg, splitPath } from '@/utils/format'
+import { requestConfirmation } from '@/composables/useConfirmDialog'
 
 const jobs = ref<HistoryJob[]>([])
 const loading = ref(false)
@@ -56,7 +57,14 @@ async function load() {
 
 async function removeJob(job: HistoryJob) {
   if (isActiveHistoryJob(job)) return
-  if (!confirm(`Remove ${job.filename} from print history?`)) return
+  const confirmed = await requestConfirmation({
+    title: 'Remove history entry?',
+    message: 'This removes the record from print history. It does not delete the G-code file.',
+    subject: job.filename,
+    confirmLabel: 'Remove entry',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   mutating.value = true
   try {
     await deleteHistoryJob(job.job_id)
@@ -71,7 +79,13 @@ async function removeJob(job: HistoryJob) {
 
 async function removeAll() {
   if (!jobs.value.length || printerHasActiveJob.value) return
-  if (!confirm('Clear all print history? This cannot be undone.')) return
+  const confirmed = await requestConfirmation({
+    title: 'Clear all print history?',
+    message: `This permanently removes all ${jobs.value.length} history entries.`,
+    confirmLabel: 'Clear all history',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   mutating.value = true
   try {
     await clearHistory()

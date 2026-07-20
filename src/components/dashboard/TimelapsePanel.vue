@@ -6,6 +6,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { fmtSize, fmtDate, fmtDur, splitPath } from '@/utils/format'
 import { HOST } from '@/utils/env'
+import { requestConfirmation } from '@/composables/useConfirmDialog'
 
 const printer = usePrinterStore()
 const printerWs = usePrinterWs()
@@ -80,7 +81,14 @@ watch(printerWs.connected, (isConnected, wasConnected) => {
 }, { immediate: true })
 
 async function deleteTimelapse(f: TimelapseFile) {
-  if (!confirm(`Delete ${displayName(f)}?`)) return
+  const confirmed = await requestConfirmation({
+    title: 'Delete timelapse?',
+    message: 'This will permanently delete this video from the printer.',
+    subject: displayName(f),
+    confirmLabel: 'Delete permanently',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   try {
     await printerWs.deleteTimelapse(f.video)
     toast.show(`Deleted ${displayName(f)}`)
@@ -160,6 +168,7 @@ async function deleteTimelapse(f: TimelapseFile) {
         </div>
       </div>
     </Transition>
+
   </Teleport>
 </template>
 

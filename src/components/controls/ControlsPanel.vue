@@ -6,6 +6,7 @@ import { useToastStore } from '@/stores/toast'
 import { usePrinterWs } from '@/composables/usePrinterWs'
 import { fanGcode, type CrealityFan } from '@/printer/crealityProtocol'
 import { errMsg } from '@/utils/format'
+import { requestConfirmation } from '@/composables/useConfirmDialog'
 
 const printer = usePrinterStore()
 const banner = useBannerStore()
@@ -83,13 +84,25 @@ function resumeJob() {
   return runPrintAction('Print resumed', printerWs.resumePrint)
 }
 
-function cancelJob() {
-  if (!confirm('Cancel the current print?')) return
+async function cancelJob() {
+  const confirmed = await requestConfirmation({
+    title: 'Cancel print?',
+    message: 'The printer will stop the current job. This cannot be resumed.',
+    confirmLabel: 'Cancel print',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   return runPrintAction('Print cancelled', printerWs.cancelPrint)
 }
 
-function stopPrinter() {
-  if (!confirm('EMERGENCY STOP? The printer will require a firmware restart.')) return
+async function stopPrinter() {
+  const confirmed = await requestConfirmation({
+    title: 'Emergency stop?',
+    message: 'This immediately halts the printer and requires a firmware restart.',
+    confirmLabel: 'Emergency stop',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   return runPrintAction('Emergency stop sent', printerWs.emergencyStop)
 }
 
@@ -197,7 +210,15 @@ const maintenanceCommands: UtilityCommand[] = [
 
 async function runUtility(command: UtilityCommand) {
   if (jobActive.value) return
-  if (command.confirmation && !window.confirm(command.confirmation)) return
+  if (command.confirmation) {
+    const confirmed = await requestConfirmation({
+      title: `${command.label}?`,
+      message: command.confirmation,
+      confirmLabel: `Run ${command.label}`,
+      tone: 'warning',
+    })
+    if (!confirmed) return
+  }
   await cmd(command.gcode, command.label)
 }
 

@@ -5,6 +5,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
 import { errMsg, fmtSize, splitPath } from '@/utils/format'
+import { requestConfirmation } from '@/composables/useConfirmDialog'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
@@ -65,8 +66,6 @@ const klipperConfig = StreamLanguage.define({
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-
-const UNSAVED_PROMPT = 'Discard unsaved changes?'
 
 // One row in the file tree. Extracted so sub-entry (indented) and
 // root-level (full-width) files share markup. The only difference is
@@ -219,9 +218,18 @@ function toggle() {
   loadFiles()
 }
 
-function close() {
+async function confirmDiscardChanges() {
+  return requestConfirmation({
+    title: 'Discard unsaved changes?',
+    message: 'Your edits will be lost.',
+    confirmLabel: 'Discard changes',
+    tone: 'warning',
+  })
+}
+
+async function close() {
   if (view.value === 'editor' && changed.value) {
-    if (!confirm(UNSAVED_PROMPT)) return
+    if (!await confirmDiscardChanges()) return
   }
   show.value = false
 }
@@ -316,9 +324,9 @@ watch(view, async (v) => {
 })
 
 // Back from the editor → list. Confirm if there are unsaved changes.
-function cancel() {
+async function cancel() {
   if (changed.value) {
-    if (!confirm(UNSAVED_PROMPT)) return
+    if (!await confirmDiscardChanges()) return
   }
   destroyEditor()
   selected.value = ''
@@ -373,10 +381,15 @@ async function saveFile(): Promise<boolean> {
 async function delFile(p: string) {
   if (jobActive.value) return
   const filename = splitPath(p)
-  const confirmation = window.prompt(
-    `Permanently delete “${p}”?\n\nThis may break the printer configuration and cannot be undone. Type “${filename}” to confirm.`,
-  )
-  if (confirmation !== filename) return
+  const confirmed = await requestConfirmation({
+    title: 'Delete config file?',
+    message: 'This may break the printer configuration and cannot be undone.',
+    subject: p,
+    confirmLabel: 'Delete permanently',
+    tone: 'danger',
+    requiredText: filename,
+  })
+  if (!confirmed) return
   try {
     await deleteConfigFile(p)
     toast.show(`Deleted ${p}`)
