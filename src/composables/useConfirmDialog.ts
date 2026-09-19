@@ -22,6 +22,7 @@ export interface TextInputOptions {
 
 export const confirmationDialog = reactive({
   open: false,
+  requestId: 0,
   mode: 'confirmation' as 'confirmation' | 'text-input',
   title: '',
   message: '',
@@ -47,6 +48,7 @@ export function requestConfirmation(options: ConfirmationOptions): Promise<boole
 
   Object.assign(confirmationDialog, {
     open: true,
+    requestId: confirmationDialog.requestId + 1,
     mode: 'confirmation',
     title: options.title,
     message: options.message,
@@ -70,6 +72,7 @@ export function requestTextInput(options: TextInputOptions): Promise<string | nu
 
   Object.assign(confirmationDialog, {
     open: true,
+    requestId: confirmationDialog.requestId + 1,
     mode: 'text-input',
     title: options.title,
     message: options.message,

@@ -170,6 +170,8 @@ html, body, #app {
 @media (min-width: 640px) { .stat-cell { padding: 0 2rem; } }
 @media (max-width: 639px) {
   .stat-cell { padding-top: .75rem; padding-bottom: .75rem; }
+  /* The final stat cell supplies the card's bottom inset on mobile. */
+  .status-panel { padding-bottom: 0; }
 }
 
 /* ── Range slider (Controls panel) ─────────────────────── */

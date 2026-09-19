@@ -4,8 +4,9 @@ import { clearHistory, deleteHistoryJob, getHistoryList, type HistoryJob } from 
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
-import { fmtDur, fmtDate, fmtFilamentMeters, errMsg, splitPath } from '@/utils/format'
+import { fmtDur, fmtDate, fmtFilamentMeters, errMsg } from '@/utils/format'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
+import { findActiveHistoryJobId } from '@/utils/history'
 
 const jobs = ref<HistoryJob[]>([])
 const loading = ref(false)
@@ -14,21 +15,15 @@ const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
 const printerHasActiveJob = computed(() => printer.isPrinting || printer.isPaused)
-const activeHistoryJobId = computed(() => {
-  if (!printerHasActiveJob.value) return null
-  const inProgress = jobs.value.filter((job) => job.status === 'in_progress')
-  if (!inProgress.length) return null
-
-  const currentFilename = splitPath(printer.printFilename)
-  const matching = currentFilename
-    ? inProgress.filter((job) => splitPath(job.filename) === currentFilename)
-    : inProgress
-  const candidates = matching.length ? matching : inProgress
-  return candidates.reduce((latest, job) => job.start_time > latest.start_time ? job : latest).job_id
-})
+const activeHistoryJobId = computed(() =>
+  findActiveHistoryJobId(jobs.value, printer.printFilename, printerHasActiveJob.value),
+)
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const isActiveHistoryJob = (job: HistoryJob) => job.job_id === activeHistoryJobId.value
+// If the printer's filename has not arrived yet, do not risk deleting the
+// actual job from history just because we cannot reconcile it to a row.
+const isProtectedHistoryJob = (job: HistoryJob) => printerHasActiveJob.value && job.status === 'in_progress'
 const displayStatus = (job: HistoryJob) => (
   job.status === 'in_progress' && !isActiveHistoryJob(job) ? 'interrupted' : job.status
 )
@@ -56,7 +51,7 @@ async function load() {
 }
 
 async function removeJob(job: HistoryJob) {
-  if (isActiveHistoryJob(job)) return
+  if (isProtectedHistoryJob(job)) return
   const confirmed = await requestConfirmation({
     title: 'Remove history entry?',
     message: 'This removes the record from print history. It does not delete the G-code file.',
@@ -64,7 +59,7 @@ async function removeJob(job: HistoryJob) {
     confirmLabel: 'Remove entry',
     tone: 'danger',
   })
-  if (!confirmed) return
+  if (!confirmed || isProtectedHistoryJob(job)) return
   mutating.value = true
   try {
     await deleteHistoryJob(job.job_id)
@@ -85,7 +80,7 @@ async function removeAll() {
     confirmLabel: 'Clear all history',
     tone: 'danger',
   })
-  if (!confirmed) return
+  if (!confirmed || printerHasActiveJob.value) return
   mutating.value = true
   try {
     await clearHistory()
@@ -155,20 +150,20 @@ onUnmounted(() => {
 
       <ul v-else class="divide-y divide-[var(--border)]">
         <li v-for="j in jobs" :key="j.job_id" class="px-7 lg:px-8 py-5 list-row-hover">
-          <div class="flex items-center gap-4">
-            <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-2">
+            <div class="flex-1 min-w-0 max-sm:basis-full">
               <div class="row-title" :title="j.filename">{{ j.filename }}</div>
               <div class="row-meta">
                 {{ fmtDate(j.start_time) }} · {{ fmtDur(j.print_duration) }} · {{ fmtFilamentMeters(j.filament_used) }}
               </div>
             </div>
-            <span class="text-[11px] font-semibold uppercase tracking-wider" :class="statusClass(displayStatus(j))">
+            <span class="text-[11px] font-semibold uppercase tracking-wider max-sm:order-2 max-sm:mr-auto" :class="statusClass(displayStatus(j))">
               {{ fmtStatus(displayStatus(j)) }}
             </span>
             <button
-              class="btn btn-danger btn-sm"
-              :disabled="mutating || isActiveHistoryJob(j)"
-              :title="isActiveHistoryJob(j) ? 'Cannot remove an active job' : 'Remove history entry'"
+              class="btn btn-danger btn-sm max-sm:order-3"
+              :disabled="mutating || isProtectedHistoryJob(j)"
+              :title="isProtectedHistoryJob(j) ? 'Wait for the active print to finish' : 'Remove history entry'"
               @click="removeJob(j)"
             >Delete</button>
           </div>

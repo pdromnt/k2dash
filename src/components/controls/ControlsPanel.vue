@@ -25,8 +25,10 @@ watch(() => [printer.fanPart, printer.fanAux, printer.fanChamber], ([p, a, c]) =
 async function cmd(script: string, label?: string) {
   if (!import.meta.env.VITE_PRINTER_HOST) return
   try {
-    await printerWs.sendGcodeCommand(script)
-    toast.show(label ? `${label} · OK` : `OK · ${script.split('\n')[0]}`)
+    const transport = await printerWs.sendGcodeCommand(script)
+    toast.show(label
+      ? `${label} · ${transport === 'websocket' ? 'sent' : 'accepted'}`
+      : `${transport === 'websocket' ? 'Sent' : 'Accepted'} · ${script.split('\n')[0]}`)
   } catch (e) {
     banner.show('Failed to send G-code', errMsg(e))
   }
@@ -35,12 +37,12 @@ async function cmd(script: string, label?: string) {
 async function allOff() {
   if (jobActive.value) return
   try {
-    await Promise.all([
+    const transports = await Promise.all([
       printerWs.sendGcodeCommand('M104 S0'),
       printerWs.sendGcodeCommand('M140 S0'),
       printerWs.sendGcodeCommand('M141 S0'),
     ])
-    toast.show('All heaters off')
+    toast.show(transports.includes('websocket') ? 'Heater-off commands sent' : 'Heater-off commands accepted')
   } catch (e) {
     banner.show('Failed to turn heaters off', errMsg(e))
   }
@@ -67,21 +69,21 @@ async function setTemp(heater: string, temp: string) {
   await cmd(mcode, `${heater === 'heater_bed' ? 'Bed' : 'Extruder'} target \u00b7 ${t}\u00b0C`)
 }
 
-async function runPrintAction(label: string, action: () => Promise<unknown>) {
+async function runPrintAction(label: string, action: () => Promise<'websocket' | 'moonraker'>) {
   try {
-    await action()
-    toast.show(label)
+    const transport = await action()
+    toast.show(`${label} ${transport === 'websocket' ? 'request sent' : 'accepted'}`)
   } catch (e) {
     banner.show(`${label} failed`, errMsg(e))
   }
 }
 
 function pauseJob() {
-  return runPrintAction('Print paused', printerWs.pausePrint)
+  return runPrintAction('Pause print', printerWs.pausePrint)
 }
 
 function resumeJob() {
-  return runPrintAction('Print resumed', printerWs.resumePrint)
+  return runPrintAction('Resume print', printerWs.resumePrint)
 }
 
 async function cancelJob() {
@@ -91,8 +93,8 @@ async function cancelJob() {
     confirmLabel: 'Cancel print',
     tone: 'danger',
   })
-  if (!confirmed) return
-  return runPrintAction('Print cancelled', printerWs.cancelPrint)
+  if (!confirmed || !jobActive.value) return
+  return runPrintAction('Cancel print', printerWs.cancelPrint)
 }
 
 async function stopPrinter() {
@@ -103,7 +105,7 @@ async function stopPrinter() {
     tone: 'danger',
   })
   if (!confirmed) return
-  return runPrintAction('Emergency stop sent', printerWs.emergencyStop)
+  return runPrintAction('Emergency stop', printerWs.emergencyStop)
 }
 
 async function setFan(fan: CrealityFan, pct: number) {
@@ -115,8 +117,8 @@ async function toggleLed() {
   const enabled = !printer.ledState
   ledBusy.value = true
   try {
-    await printerWs.setLight(enabled)
-    toast.show(`LED ${enabled ? 'ON' : 'OFF'} · OK`)
+    const transport = await printerWs.setLight(enabled)
+    toast.show(`LED ${enabled ? 'ON' : 'OFF'} · ${transport === 'websocket' ? 'sent' : 'accepted'}`)
   } catch (e) {
     banner.show('Failed to toggle chamber light', errMsg(e))
   } finally {
@@ -217,8 +219,9 @@ async function runUtility(command: UtilityCommand) {
       confirmLabel: `Run ${command.label}`,
       tone: 'warning',
     })
-    if (!confirmed) return
+    if (!confirmed || jobActive.value) return
   }
+  if (jobActive.value) return
   await cmd(command.gcode, command.label)
 }
 
@@ -285,12 +288,12 @@ function jogGradient(value: number) {
     <div class="t-title">Controls</div>
 
     <!-- Print controls -->
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2 max-sm:grid max-sm:grid-cols-2">
       <button v-if="printer.isPaused" class="btn btn-primary" @click="resumeJob">Resume</button>
       <button v-if="printer.isPrinting" class="btn btn-warn" @click="pauseJob">Pause</button>
       <button v-if="printer.isPrinting || printer.isPaused" class="btn" @click="cancelJob">Cancel</button>
       <span v-if="!printer.isPrinting && !printer.isPaused" class="t-mute uppercase tracking-wider">No active print</span>
-      <button class="btn btn-danger ml-auto shrink-0" @click="stopPrinter">
+      <button class="btn btn-danger ml-auto shrink-0 max-sm:ml-0 max-sm:col-span-2 max-sm:w-full" @click="stopPrinter">
         🚨 ABORT
       </button>
     </div>

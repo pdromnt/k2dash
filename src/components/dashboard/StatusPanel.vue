@@ -99,9 +99,9 @@ const heaters = computed(() => [
 </script>
 
 <template>
-  <div class="card-panel h-full">
+  <div class="card-panel status-panel h-full max-sm:gap-4">
     <!-- Header -->
-    <div class="flex items-center justify-between shrink-0 pb-5 max-sm:pb-4">
+    <div class="flex items-center justify-between shrink-0 pb-5 max-sm:pb-0">
       <div class="t-title">Live status</div>
       <span v-if="hasJob && printer.state && printer.state !== 'unknown'" class="text-[11px] font-semibold uppercase tracking-wider capitalize" :class="stateBadge(printer.state)">
         {{ printer.state }}
@@ -148,34 +148,35 @@ const heaters = computed(() => [
 
     <div class="flex-1 flex flex-col justify-center gap-5 max-sm:gap-4 lg:gap-8">
 
-    <!-- Temperatures: responsive grid -->
-    <div class="stats-grid">
-      <div v-for="(h, i) in heaters" :key="h.label" class="stat-cell" :class="{ 'max-sm:-mb-5': i === heaters.length - 1 }">
-        <div class="t-title mb-3">{{ h.label }}</div>
-        <div class="flex max-sm:flex-col max-sm:items-start items-baseline gap-1.5 max-sm:gap-0.5">
-          <span class="text-[20px] sm:text-[28px] font-semibold tracking-tight tabular-nums"
-            :class="h.muted ? 'text-[var(--text-dim)]' : ''"
-            :style="h.muted ? undefined : { color: tempColor(h.current, h.target) }">
-            {{ fmtTemp(h.current) }}<span class="text-[0.55em] align-super ml-px">C</span>
-          </span>
-          <span v-if="h.target > 0" class="t-mono text-[11px] max-sm:hidden"> / {{ h.target.toFixed(0) }}°C</span>
-          <span v-if="h.target > 0" class="t-mute text-[10px] hidden max-sm:inline">→ {{ h.target.toFixed(0) }}°C</span>
+    <!-- Keep the grid and its divider together so mobile spacing is controlled
+         by the stat cells, not the surrounding panel's section gap. -->
+    <div class="flex flex-col gap-5 max-sm:gap-0 lg:gap-8">
+      <div class="stats-grid">
+        <div v-for="h in heaters" :key="h.label" class="stat-cell">
+          <div class="t-title mb-3">{{ h.label }}</div>
+          <div class="flex max-sm:flex-col max-sm:items-start items-baseline gap-1.5 max-sm:gap-0.5">
+            <span class="text-[20px] sm:text-[28px] font-semibold tracking-tight tabular-nums"
+              :class="h.muted ? 'text-[var(--text-dim)]' : ''"
+              :style="h.muted ? undefined : { color: tempColor(h.current, h.target) }">
+              {{ fmtTemp(h.current) }}<span class="text-[0.55em] align-super ml-px">C</span>
+            </span>
+            <span v-if="h.target > 0" class="t-mono text-[11px] max-sm:hidden"> / {{ h.target.toFixed(0) }}°C</span>
+            <span v-if="h.target > 0" class="t-mute text-[10px] hidden max-sm:inline">→ {{ h.target.toFixed(0) }}°C</span>
+          </div>
         </div>
       </div>
+      <div class="divider -mx-7 lg:-mx-8" />
     </div>
 
-    <!-- Separator -->
-    <div class="divider -mx-7 lg:-mx-8" />
-
     <!-- Print job info (shown whenever a job exists) -->
-    <div v-if="hasJob" class="flex flex-col gap-5">
+    <div v-if="hasJob" class="flex flex-col gap-5 max-sm:gap-4">
       <div class="flex max-sm:flex-col gap-5 items-center">
         <img
           v-if="printer.thumbnailUrl"
           :src="printer.thumbnailUrl"
           :key="printer.thumbnailUrl"
           :alt="rawFname || 'Print preview'"
-          class="w-[11.2rem] h-[11.2rem] rounded-lg object-cover bg-[var(--bg-input)] border border-[var(--border)] shrink-0 transition-transform duration-200 sm:hover:scale-[2.5] sm:hover:z-30 sm:hover:shadow-2xl sm:hover:rounded-xl origin-left sm:cursor-pointer"
+          class="w-[11.2rem] h-[11.2rem] max-sm:w-36 max-sm:h-36 rounded-lg object-cover bg-[var(--bg-input)] border border-[var(--border)] shrink-0 transition-transform duration-200 sm:hover:scale-[2.5] sm:hover:z-30 sm:hover:shadow-2xl sm:hover:rounded-xl origin-left sm:cursor-pointer"
           @error="onThumbnailError"
         />
         <div class="flex-1 min-w-0 flex flex-col justify-center gap-5 max-sm:w-full">

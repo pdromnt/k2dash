@@ -10,7 +10,7 @@ import TimelapsePanel from '@/components/dashboard/TimelapsePanel.vue'
 </script>
 
 <template>
-  <div class="max-w-[1800px] mx-auto px-8 lg:px-12 py-10 lg:py-14">
+  <div class="max-w-[1800px] mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-10 lg:py-14">
     <!-- Row 1: Status + Webcam -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 mb-8 lg:mb-12">
       <div class="xl:col-span-6"><StatusPanel /></div>

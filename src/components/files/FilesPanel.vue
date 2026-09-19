@@ -44,7 +44,7 @@ async function del(f: FileInfo) {
     confirmLabel: 'Delete permanently',
     tone: 'danger',
   })
-  if (!confirmed) return
+  if (!confirmed || jobActive.value) return
   try {
     await deleteFile(f.path)
     toast.show(`Deleted ${f.path}`)
@@ -64,7 +64,7 @@ async function rename(f: FileInfo) {
     initialValue: currentName,
     confirmLabel: 'Rename file',
   })
-  if (entered === null) return
+  if (entered === null || jobActive.value) return
 
   const newName = entered.trim()
   if (!newName || newName === currentName) return
@@ -91,8 +91,8 @@ async function rename(f: FileInfo) {
 async function pr(f: FileInfo) {
   if (jobActive.value) return
   try {
-    await printerWs.startPrint(f.path)
-    toast.show(`Printing ${f.path}`)
+    const transport = await printerWs.startPrint(f.path)
+    toast.show(transport === 'websocket' ? `Print request sent for ${f.path}` : `Printing ${f.path}`)
   } catch (e) {
     banner.show('Failed to start print', errMsg(e))
   }
@@ -123,13 +123,13 @@ onMounted(load)
 
 <template>
   <div class="card-panel h-full">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-3 max-sm:items-start">
       <div class="t-title">Files</div>
-      <div class="flex items-center gap-3">
-        <span v-if="jobActive" class="text-[11px] text-[var(--amber)] uppercase tracking-wider" title="File actions unlock when the active print finishes">
+      <div class="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-end max-sm:gap-x-2 max-sm:gap-y-1">
+        <span v-if="jobActive" class="text-[11px] text-[var(--amber)] uppercase tracking-wider max-sm:order-3 max-sm:w-full max-sm:text-right" title="File actions unlock when the active print finishes">
           Actions locked
         </span>
-        <span v-if="!loading && files.length > 0" class="t-mute font-mono">{{ files.length }} files</span>
+        <span v-if="!loading && files.length > 0" class="t-mute font-mono">{{ files.length }} {{ files.length === 1 ? 'file' : 'files' }}</span>
         <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload files">
           <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

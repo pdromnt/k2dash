@@ -16,9 +16,9 @@ const confirmClass = computed(() => {
   return 'btn-primary'
 })
 
-watch(() => confirmationDialog.open, async (open) => {
+watch(() => confirmationDialog.requestId, async () => {
   enteredText.value = confirmationDialog.initialValue
-  if (open && (confirmationDialog.mode === 'text-input' || confirmationDialog.requiredText)) {
+  if (confirmationDialog.open && (confirmationDialog.mode === 'text-input' || confirmationDialog.requiredText)) {
     await nextTick()
     confirmationInput.value?.focus()
     if (confirmationDialog.mode === 'text-input') confirmationInput.value?.select()
@@ -43,7 +43,7 @@ function submit() {
       <div
         v-if="confirmationDialog.open"
         class="fixed inset-0 z-[110] flex items-center justify-center p-4"
-        @keydown.esc="cancel"
+        @keydown.esc.stop.prevent="cancel"
       >
         <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" @click="cancel" />
         <div

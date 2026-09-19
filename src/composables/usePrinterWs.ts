@@ -367,10 +367,10 @@ function parseBoxsInfo(info: Record<string, unknown>) {
 
 function parseFileList(info: unknown) {
   const files = Array.isArray(info) ? info as Array<Record<string, unknown>> : undefined
-  if (!files?.length) return
+  if (!files) return
 
   fileList.value = files
-  matchEstimatedData(files)
+  if (files.length) matchEstimatedData(files)
 }
 
 function parseTimelapseList(info: unknown) {

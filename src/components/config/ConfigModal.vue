@@ -5,7 +5,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
 import { errMsg, fmtSize, splitPath } from '@/utils/format'
-import { requestConfirmation } from '@/composables/useConfirmDialog'
+import { confirmationDialog, requestConfirmation } from '@/composables/useConfirmDialog'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
@@ -344,6 +344,10 @@ async function saveAndRestart() {
   if (!selected.value || jobActive.value) return
   const ok = await saveFile()
   if (!ok) return
+  if (jobActive.value) {
+    banner.show('Config saved, but restart skipped because a print started')
+    return
+  }
   // Klipper restart kicks the printer offline briefly. Warn the user,
   // then issue the restart. We close the editor regardless — the WS will
   // disconnect and reconnect once Klipper is back.
@@ -356,6 +360,7 @@ async function saveAndRestart() {
 }
 
 async function saveFile(): Promise<boolean> {
+  if (jobActive.value) return false
   const fp = selected.value || newFileName.value
   if (!fp || !changed.value) return false
   saving.value = true
@@ -389,7 +394,7 @@ async function delFile(p: string) {
     tone: 'danger',
     requiredText: filename,
   })
-  if (!confirmed) return
+  if (!confirmed || jobActive.value) return
   try {
     await deleteConfigFile(p)
     toast.show(`Deleted ${p}`)
@@ -412,7 +417,7 @@ function toggleCollapse(p: string) {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && show.value) close()
+  if (e.key === 'Escape' && show.value && !confirmationDialog.open) close()
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))

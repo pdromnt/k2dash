@@ -30,23 +30,41 @@ function displayName(f: TimelapseFile) {
   return videoFilename(f)
 }
 
+type SavePicker = (options: { suggestedName: string }) => Promise<{
+  // Browser WritableStream is provided by the DOM lib, not ESLint's global list.
+  // eslint-disable-next-line no-undef
+  createWritable: () => Promise<WritableStream<Uint8Array>>
+}>
+
 async function downloadTimelapse(f: TimelapseFile) {
   if (downloading.value) return
   downloading.value = f.video
   try {
+    // Where available, stream directly to disk instead of holding the
+    // entire MP4 in memory. The blob fallback supports mobile browsers.
+    const picker = (globalThis as typeof globalThis & { showSaveFilePicker?: SavePicker }).showSaveFilePicker
+    const handle = picker ? await picker.call(globalThis, { suggestedName: videoFilename(f) }) : null
     const response = await fetch(videoUrl(f))
     if (!response.ok) throw new Error(`Printer returned HTTP ${response.status}`)
 
-    const objectUrl = globalThis.URL.createObjectURL(await response.blob())
-    const anchor = document.createElement('a')
-    anchor.href = objectUrl
-    anchor.download = videoFilename(f)
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    setTimeout(() => globalThis.URL.revokeObjectURL(objectUrl), 1000)
+    if (handle) {
+      if (!response.body) throw new Error('Printer did not provide a downloadable stream')
+      await response.body.pipeTo(await handle.createWritable())
+    } else {
+      const objectUrl = globalThis.URL.createObjectURL(await response.blob())
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = videoFilename(f)
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      setTimeout(() => globalThis.URL.revokeObjectURL(objectUrl), 15_000)
+    }
+    toast.show(`${handle ? 'Saved' : 'Downloading'} ${videoFilename(f)}`)
   } catch (e) {
-    banner.show('Failed to download timelapse', e instanceof Error ? e.message : undefined)
+    if (!(e instanceof Error && e.name === 'AbortError')) {
+      banner.show('Failed to download timelapse', e instanceof Error ? e.message : undefined)
+    }
   } finally {
     downloading.value = null
   }
