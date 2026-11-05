@@ -1,3 +1,8 @@
+import {
+  validateMaterialMapping,
+  type MaterialMapping,
+} from './materialMapping'
+
 export interface CrealityGetParams {
   reqGcodeFile?: 1
   reqGcodeList?: 1
@@ -15,6 +20,8 @@ export interface CrealitySetParams {
   stop?: 1
   opGcodeFile?: string
   enableSelfTest?: 0 | 1
+  colorMatch?: { path: string; list: MaterialMapping[] }
+  multiColorPrint?: { gcode: string; enableSelfTest: 0 | 1 }
   ctrlVideoFiles?: {
     cmd: 'remove'
     printId: string
@@ -78,9 +85,18 @@ export const lightCommand = (enabled: boolean): CrealityMessage => ({
   params: { lightSw: enabled ? 1 : 0 },
 })
 
-export const pauseCommand = (): CrealityMessage => ({ method: 'set', params: { pause: 1 } })
-export const resumeCommand = (): CrealityMessage => ({ method: 'set', params: { pause: 0 } })
-export const cancelCommand = (): CrealityMessage => ({ method: 'set', params: { stop: 1 } })
+export const pauseCommand = (): CrealityMessage => ({
+  method: 'set',
+  params: { pause: 1 },
+})
+export const resumeCommand = (): CrealityMessage => ({
+  method: 'set',
+  params: { pause: 0 },
+})
+export const cancelCommand = (): CrealityMessage => ({
+  method: 'set',
+  params: { stop: 1 },
+})
 
 export function toCrealityGcodePath(path: string): string {
   if (path.startsWith('/mnt/UDISK/printer_data/gcodes/')) return path
@@ -96,6 +112,21 @@ export const startPrintCommand = (path: string): CrealityMessage => ({
   },
 })
 
+export function cfsPrintCommands(
+  path: string,
+  mappings: MaterialMapping[],
+): CrealityMessage[] {
+  validateMaterialMapping(mappings)
+  const gcode = toCrealityGcodePath(path)
+  return [
+    { method: 'set', params: { colorMatch: { path: gcode, list: mappings } } },
+    {
+      method: 'set',
+      params: { multiColorPrint: { gcode, enableSelfTest: 0 } },
+    },
+  ]
+}
+
 export const deleteTimelapseCommand = (file: string): CrealityMessage => ({
   method: 'set',
   params: { ctrlVideoFiles: { cmd: 'remove', printId: '', file } },
@@ -105,6 +136,8 @@ export function hasTimelapseList(message: Record<string, unknown>): boolean {
   return Array.isArray(message.elapseVideoList)
 }
 
-export function hasTimelapseDeleteResult(message: Record<string, unknown>): boolean {
+export function hasTimelapseDeleteResult(
+  message: Record<string, unknown>,
+): boolean {
   return Object.prototype.hasOwnProperty.call(message, 'ctrlVideoFiles')
 }

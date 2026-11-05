@@ -1,56 +1,26 @@
-import { api } from "./client";
-
-interface PrinterObjectsQuery {
-  eventtime: number;
-  status: Record<string, Record<string, unknown>>;
-}
+import { api } from './client'
 
 export interface FileInfo {
-  path: string;
-  modified: number;
-  size: number;
-  permissions: string;
+  path: string
+  modified: number
+  size: number
+  permissions: string
 }
 
 export interface HistoryJob {
-  job_id: string;
-  filename: string;
-  status: string;
-  start_time: number;
-  end_time: number;
-  total_duration: number;
-  print_duration: number;
-  filament_used: number;
+  job_id: string
+  filename: string
+  status: string
+  start_time: number
+  end_time: number
+  total_duration: number
+  print_duration: number
+  filament_used: number
 }
 
 interface HistoryList {
-  count: number;
-  jobs: HistoryJob[];
-}
-
-export async function queryPrinterObjects(
-  objects: Record<string, string[] | null>,
-): Promise<PrinterObjectsQuery> {
-  const params = new URLSearchParams();
-  for (const [key, fields] of Object.entries(objects)) {
-    if (fields && fields.length > 0) {
-      params.append(key, fields.join(","));
-    } else {
-      params.append(key, "");
-    }
-  }
-  const data = await api.get<{ result: PrinterObjectsQuery }>(
-    `/printer/objects/query?${params.toString()}`,
-  );
-  return data.result;
-}
-
-export async function emergencyStop(): Promise<string> {
-  return api.post("/printer/emergency_stop");
-}
-
-export async function sendGcode(script: string): Promise<string> {
-  return api.post("/printer/gcode/script", { script });
+  count: number
+  jobs: HistoryJob[]
 }
 
 /**
@@ -59,54 +29,41 @@ export async function sendGcode(script: string): Promise<string> {
  * K2 Plus's Creality fork supports it via the standard Moonraker path.
  */
 export async function restartKlipper(): Promise<string> {
-  return api.post("/printer/restart");
+  return api.post('/printer/restart')
 }
 
-export async function getFileList(root = "gcodes"): Promise<FileInfo[]> {
+export async function getFileList(root = 'gcodes'): Promise<FileInfo[]> {
   const data = await api.get<{ result: FileInfo[] }>(
     `/server/files/list?root=${root}`,
-  );
-  return data.result || [];
+  )
+  return data.result || []
 }
 
 export async function deleteFile(filePath: string): Promise<string> {
-  return api.delete(`/server/files/gcodes/${encodeURIComponent(filePath)}`);
+  return api.delete(`/server/files/gcodes/${encodeURIComponent(filePath)}`)
 }
 
-export async function renameFile(sourcePath: string, destinationPath: string): Promise<unknown> {
+export async function renameFile(
+  sourcePath: string,
+  destinationPath: string,
+): Promise<unknown> {
   return api.post('/server/files/move', {
     source: `gcodes/${sourcePath.replace(/^\/+/, '')}`,
     dest: `gcodes/${destinationPath.replace(/^\/+/, '')}`,
-  });
-}
-
-export async function startPrint(filename: string): Promise<string> {
-  return api.post("/printer/print/start", { filename });
-}
-
-export async function pausePrint(): Promise<string> {
-  return api.post("/printer/print/pause");
-}
-
-export async function resumePrint(): Promise<string> {
-  return api.post("/printer/print/resume");
-}
-
-export async function cancelPrint(): Promise<string> {
-  return api.post("/printer/print/cancel");
+  })
 }
 
 export async function getHistoryList(): Promise<HistoryList> {
-  const data = await api.get<{ result: HistoryList }>("/server/history/list");
-  return data.result;
+  const data = await api.get<{ result: HistoryList }>('/server/history/list')
+  return data.result
 }
 
 export async function deleteHistoryJob(jobId: string): Promise<unknown> {
-  return api.delete(`/server/history/job?uid=${encodeURIComponent(jobId)}`);
+  return api.delete(`/server/history/job?uid=${encodeURIComponent(jobId)}`)
 }
 
 export async function clearHistory(): Promise<unknown> {
-  return api.delete('/server/history/job?all=true');
+  return api.delete('/server/history/job?all=true')
 }
 
 export async function getConfigFiles(): Promise<FileInfo[]> {
@@ -114,10 +71,13 @@ export async function getConfigFiles(): Promise<FileInfo[]> {
 }
 
 export async function getConfigFile(filePath: string): Promise<string> {
-  return api.get(`/server/files/config/${encodeURIComponent(filePath)}`);
+  return api.get(`/server/files/config/${encodeURIComponent(filePath)}`)
 }
 
-export async function saveConfigFile(filePath: string, content: string): Promise<void> {
+export async function saveConfigFile(
+  filePath: string,
+  content: string,
+): Promise<void> {
   // Moonraker's _parse_upload_args joins `path` (a directory) with the
   // filename into the final destination, and _process_uploaded_file
   // then mkdir's every segment of `path`. If path == filename (or any
@@ -143,5 +103,5 @@ export async function saveConfigFile(filePath: string, content: string): Promise
 }
 
 export async function deleteConfigFile(filePath: string): Promise<string> {
-  return api.delete(`/server/files/config/${encodeURIComponent(filePath)}`);
+  return api.delete(`/server/files/config/${encodeURIComponent(filePath)}`)
 }

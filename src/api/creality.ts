@@ -1,14 +1,11 @@
-import { api } from './client'
 import { getUploadBaseUrl } from '@/utils/env'
-
-export async function checkConnection(): Promise<Record<string, unknown>> {
-  return api.get('/api/version')
-}
+import { isPreview } from '@/utils/preview'
 
 export async function uploadFileKlipper4408(
   file: File,
-  onProgress?: (pct: number, speed: number) => void
+  onProgress?: (pct: number, speed: number) => void,
 ): Promise<unknown> {
+  if (isPreview) throw new Error('Uploads are disabled in preview')
   const filename = encodeURIComponent(file.name)
   const url = `${getUploadBaseUrl()}/upload/${filename}`
 
@@ -24,7 +21,8 @@ export async function uploadFileKlipper4408(
         const pct = Math.round((e.loaded / e.total) * 100)
         const now = performance.now()
         const elapsedSeconds = (now - lastProgressAt) / 1000
-        const speed = elapsedSeconds > 0 ? (e.loaded - lastLoaded) / elapsedSeconds : 0
+        const speed =
+          elapsedSeconds > 0 ? (e.loaded - lastLoaded) / elapsedSeconds : 0
         lastProgressAt = now
         lastLoaded = e.loaded
         onProgress(pct, speed)

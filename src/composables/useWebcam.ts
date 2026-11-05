@@ -1,5 +1,6 @@
 import { ref, onUnmounted, shallowRef } from 'vue'
 import { getWebcamBaseUrl } from '@/utils/env'
+import { isPreview } from '@/utils/preview'
 
 const ICE_GATHER_TIMEOUT_MS = 10000
 const SIGNALING_TIMEOUT_MS = 15000
@@ -24,7 +25,10 @@ function decodeAnswer(b64: string): string {
 
 function waitForIceGathering(connection: RTCPeerConnection): Promise<void> {
   return new Promise((resolve) => {
-    if (connection.iceGatheringState === 'complete') { resolve(); return }
+    if (connection.iceGatheringState === 'complete') {
+      resolve()
+      return
+    }
 
     const finish = () => {
       clearTimeout(timer)
@@ -46,8 +50,12 @@ export function useWebcam() {
   const connecting = ref(false)
   const error = ref<string | null>(null)
 
-  const log = (m: string, ...a: unknown[]) => { if (import.meta.env.DEV) console.log('[Webcam] ' + m, ...a) }
-  const logErr = (m: string, ...a: unknown[]) => { if (import.meta.env.DEV) console.error('[Webcam] ' + m, ...a) }
+  const log = (m: string, ...a: unknown[]) => {
+    if (import.meta.env.DEV) console.log('[Webcam] ' + m, ...a)
+  }
+  const logErr = (m: string, ...a: unknown[]) => {
+    if (import.meta.env.DEV) console.error('[Webcam] ' + m, ...a)
+  }
 
   let pc: RTCPeerConnection | null = null
   let stream: MediaStream | null = null
@@ -60,6 +68,7 @@ export function useWebcam() {
   }
 
   async function connect() {
+    if (isPreview) return
     if (connecting.value || connected.value) return
     cleanupConnection()
     const attempt = ++activeAttempt
@@ -114,7 +123,6 @@ export function useWebcam() {
 
       log('Gathering complete, sending offer')
       await sendOffer(connection)
-
     } catch (e) {
       if (attempt !== activeAttempt) return
       connecting.value = false
@@ -125,12 +133,16 @@ export function useWebcam() {
   }
 
   async function sendOffer(connection: RTCPeerConnection) {
-    if (!connection.localDescription) throw new Error('Webcam offer was not created')
+    if (!connection.localDescription)
+      throw new Error('Webcam offer was not created')
     const body = encodeOffer(connection.localDescription.sdp)
     log('Sending offer,', body.length, 'bytes base64')
 
     signalingAbort = new AbortController()
-    const timeout = setTimeout(() => signalingAbort?.abort(), SIGNALING_TIMEOUT_MS)
+    const timeout = setTimeout(
+      () => signalingAbort?.abort(),
+      SIGNALING_TIMEOUT_MS,
+    )
     try {
       const resp = await fetch(signalingUrl, {
         method: 'POST',
@@ -150,7 +162,7 @@ export function useWebcam() {
       log('Answer SDP:', answerSdp.substring(0, 100) + '...')
 
       await connection.setRemoteDescription(
-        new RTCSessionDescription({ type: 'answer', sdp: answerSdp })
+        new RTCSessionDescription({ type: 'answer', sdp: answerSdp }),
       )
       log('Remote description set')
     } finally {
@@ -162,8 +174,14 @@ export function useWebcam() {
   function cleanupConnection() {
     signalingAbort?.abort()
     signalingAbort = null
-    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null }
-    if (pc) { pc.close(); pc = null }
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop())
+      stream = null
+    }
+    if (pc) {
+      pc.close()
+      pc = null
+    }
     if (videoRef.value) videoRef.value.srcObject = null
     connected.value = false
     connecting.value = false

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { clearHistory, deleteHistoryJob, getHistoryList, type HistoryJob } from '@/api/moonraker'
+import {
+  clearHistory,
+  deleteHistoryJob,
+  getHistoryList,
+  type HistoryJob,
+} from '@/api/moonraker'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
@@ -14,19 +19,28 @@ const mutating = ref(false)
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-const printerHasActiveJob = computed(() => printer.isPrinting || printer.isPaused)
+const printerHasActiveJob = computed(
+  () => printer.isPrinting || printer.isPaused,
+)
 const activeHistoryJobId = computed(() =>
-  findActiveHistoryJobId(jobs.value, printer.printFilename, printerHasActiveJob.value),
+  findActiveHistoryJobId(
+    jobs.value,
+    printer.printFilename,
+    printerHasActiveJob.value,
+  ),
 )
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
-const isActiveHistoryJob = (job: HistoryJob) => job.job_id === activeHistoryJobId.value
+const isActiveHistoryJob = (job: HistoryJob) =>
+  job.job_id === activeHistoryJobId.value
 // If the printer's filename has not arrived yet, do not risk deleting the
 // actual job from history just because we cannot reconcile it to a row.
-const isProtectedHistoryJob = (job: HistoryJob) => printerHasActiveJob.value && job.status === 'in_progress'
-const displayStatus = (job: HistoryJob) => (
-  job.status === 'in_progress' && !isActiveHistoryJob(job) ? 'interrupted' : job.status
-)
+const isProtectedHistoryJob = (job: HistoryJob) =>
+  printerHasActiveJob.value && job.status === 'in_progress'
+const displayStatus = (job: HistoryJob) =>
+  job.status === 'in_progress' && !isActiveHistoryJob(job)
+    ? 'interrupted'
+    : job.status
 
 const statusClass = (s: string) => {
   if (s === 'completed') return 'state-printing'
@@ -54,7 +68,8 @@ async function removeJob(job: HistoryJob) {
   if (isProtectedHistoryJob(job)) return
   const confirmed = await requestConfirmation({
     title: 'Remove history entry?',
-    message: 'This removes the record from print history. It does not delete the G-code file.',
+    message:
+      'This removes the record from print history. It does not delete the G-code file.',
     subject: job.filename,
     confirmLabel: 'Remove entry',
     tone: 'danger',
@@ -98,19 +113,31 @@ onMounted(load)
 // Refresh at both ends of a print. The start refresh identifies the real
 // active history row; the completion refresh picks up its final status.
 // A brief delay gives Moonraker time to persist the history change.
-watch(() => printer.state, (newState, oldState) => {
-  const wasActive = oldState === 'printing' || oldState === 'preparing' || oldState === 'paused'
-  const isActive = newState === 'printing' || newState === 'preparing' || newState === 'paused'
-  const isInactive = newState === 'complete' || newState === 'cancelled'
-    || newState === 'error' || newState === 'idle'
-  if ((!wasActive && isActive) || (wasActive && isInactive)) {
-    if (refreshTimer) clearTimeout(refreshTimer)
-    refreshTimer = setTimeout(() => {
-      refreshTimer = null
-      load()
-    }, 2000)
-  }
-})
+watch(
+  () => printer.state,
+  (newState, oldState) => {
+    const wasActive =
+      oldState === 'printing' ||
+      oldState === 'preparing' ||
+      oldState === 'paused'
+    const isActive =
+      newState === 'printing' ||
+      newState === 'preparing' ||
+      newState === 'paused'
+    const isInactive =
+      newState === 'complete' ||
+      newState === 'cancelled' ||
+      newState === 'error' ||
+      newState === 'idle'
+    if ((!wasActive && isActive) || (wasActive && isInactive)) {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null
+        load()
+      }, 2000)
+    }
+  },
+)
 
 onUnmounted(() => {
   if (refreshTimer) clearTimeout(refreshTimer)
@@ -118,27 +145,51 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="card-panel h-full">
+  <div class="card-panel">
     <div class="flex items-center justify-between">
       <div class="t-title">History</div>
       <div class="flex items-center gap-3">
-        <span v-if="!loading && jobs.length > 0" class="t-mute font-mono">{{ jobs.length }} jobs</span>
+        <span v-if="!loading && jobs.length > 0" class="t-mute font-mono"
+          >{{ jobs.length }} jobs</span
+        >
         <button
           v-if="jobs.length > 0"
           class="btn btn-danger btn-sm"
           :disabled="loading || mutating || printerHasActiveJob"
-          :title="printerHasActiveJob ? 'Wait for the active print to finish' : 'Clear all print history'"
+          :title="
+            printerHasActiveJob
+              ? 'Wait for the active print to finish'
+              : 'Clear all print history'
+          "
           @click="removeAll"
-        >Clear</button>
-        <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload history">
-          <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        >
+          Clear
+        </button>
+        <button
+          class="btn btn-ghost btn-sm"
+          @click="load"
+          :disabled="loading"
+          aria-label="Reload history"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            :class="{ 'animate-spin': loading }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
           </svg>
         </button>
       </div>
     </div>
 
-    <div class="max-h-[380px] -mx-7 lg:-mx-8 overflow-y-auto">
+    <div class="max-h-[380px] panel-bleed overflow-y-auto">
       <div v-if="loading" class="empty-state">
         <span class="spinner"></span>
         <p class="mt-3 t-mute">Loading…</p>
@@ -149,23 +200,39 @@ onUnmounted(() => {
       </div>
 
       <ul v-else class="divide-y divide-[var(--border)]">
-        <li v-for="j in jobs" :key="j.job_id" class="px-7 lg:px-8 py-5 list-row-hover">
-          <div class="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-2">
+        <li
+          v-for="j in jobs"
+          :key="j.job_id"
+          class="panel-row py-5 list-row-hover"
+        >
+          <div
+            class="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-2"
+          >
             <div class="flex-1 min-w-0 max-sm:basis-full">
               <div class="row-title" :title="j.filename">{{ j.filename }}</div>
               <div class="row-meta">
-                {{ fmtDate(j.start_time) }} · {{ fmtDur(j.print_duration) }} · {{ fmtFilamentMeters(j.filament_used) }}
+                {{ fmtDate(j.start_time) }} · {{ fmtDur(j.print_duration) }} ·
+                {{ fmtFilamentMeters(j.filament_used) }}
               </div>
             </div>
-            <span class="text-[11px] font-semibold uppercase tracking-wider max-sm:order-2 max-sm:mr-auto" :class="statusClass(displayStatus(j))">
+            <span
+              class="text-[11px] font-semibold uppercase tracking-wider max-sm:order-2 max-sm:mr-auto"
+              :class="statusClass(displayStatus(j))"
+            >
               {{ fmtStatus(displayStatus(j)) }}
             </span>
             <button
               class="btn btn-danger btn-sm max-sm:order-3"
               :disabled="mutating || isProtectedHistoryJob(j)"
-              :title="isProtectedHistoryJob(j) ? 'Wait for the active print to finish' : 'Remove history entry'"
+              :title="
+                isProtectedHistoryJob(j)
+                  ? 'Wait for the active print to finish'
+                  : 'Remove history entry'
+              "
               @click="removeJob(j)"
-            >Delete</button>
+            >
+              Delete
+            </button>
           </div>
         </li>
       </ul>

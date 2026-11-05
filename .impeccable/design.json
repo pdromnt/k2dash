@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T01:55:26Z",
+  "title": "Design System: K2Dash",
+  "extensions": {
+    "colorMeta": {
+      "green": {
+        "role": "primary",
+        "displayName": "Creality Green",
+        "tonalRamp": [
+          "oklch(15% 0.0392 149.68)",
+          "oklch(26% 0.1007 149.68)",
+          "oklch(37% 0.1623 149.68)",
+          "oklch(49% 0.1958 149.68)",
+          "oklch(61% 0.1958 149.68)",
+          "oklch(73% 0.1893 149.68)",
+          "oklch(85% 0.1110 149.68)",
+          "oklch(95% 0.0457 149.68)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Action Green",
+        "tonalRamp": [
+          "oklch(15% 0.0392 149.68)",
+          "oklch(26% 0.1007 149.68)",
+          "oklch(37% 0.1623 149.68)",
+          "oklch(49% 0.1958 149.68)",
+          "oklch(61% 0.1958 149.68)",
+          "oklch(73% 0.1893 149.68)",
+          "oklch(85% 0.1110 149.68)",
+          "oklch(95% 0.0457 149.68)"
+        ]
+      },
+      "accent-ink": {
+        "role": "neutral",
+        "displayName": "Green Button Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0119 150.25)",
+          "oklch(26% 0.0307 150.25)",
+          "oklch(37% 0.0494 150.25)",
+          "oklch(49% 0.0597 150.25)",
+          "oklch(61% 0.0597 150.25)",
+          "oklch(73% 0.0577 150.25)",
+          "oklch(85% 0.0338 150.25)",
+          "oklch(95% 0.0139 150.25)"
+        ]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Warning Amber",
+        "tonalRamp": [
+          "oklch(15% 0.0233 82.22)",
+          "oklch(26% 0.0599 82.22)",
+          "oklch(37% 0.0965 82.22)",
+          "oklch(49% 0.1165 82.22)",
+          "oklch(61% 0.1165 82.22)",
+          "oklch(73% 0.1126 82.22)",
+          "oklch(85% 0.0660 82.22)",
+          "oklch(95% 0.0272 82.22)"
+        ]
+      },
+      "red": {
+        "role": "secondary",
+        "displayName": "Error Red",
+        "tonalRamp": [
+          "oklch(15% 0.0192 23.40)",
+          "oklch(26% 0.0493 23.40)",
+          "oklch(37% 0.0795 23.40)",
+          "oklch(49% 0.0960 23.40)",
+          "oklch(61% 0.0960 23.40)",
+          "oklch(73% 0.0928 23.40)",
+          "oklch(85% 0.0544 23.40)",
+          "oklch(95% 0.0224 23.40)"
+        ]
+      },
+      "blue": {
+        "role": "secondary",
+        "displayName": "Completion Blue",
+        "tonalRamp": [
+          "oklch(15% 0.0137 252.05)",
+          "oklch(26% 0.0352 252.05)",
+          "oklch(37% 0.0567 252.05)",
+          "oklch(49% 0.0684 252.05)",
+          "oklch(61% 0.0684 252.05)",
+          "oklch(73% 0.0661 252.05)",
+          "oklch(85% 0.0387 252.05)",
+          "oklch(95% 0.0160 252.05)"
+        ]
+      },
+      "bg-page": {
+        "role": "neutral",
+        "displayName": "Page Graphite",
+        "tonalRamp": [
+          "oklch(15% 0.0017 264.35)",
+          "oklch(26% 0.0045 264.35)",
+          "oklch(37% 0.0072 264.35)",
+          "oklch(49% 0.0087 264.35)",
+          "oklch(61% 0.0087 264.35)",
+          "oklch(73% 0.0084 264.35)",
+          "oklch(85% 0.0049 264.35)",
+          "oklch(95% 0.0020 264.35)"
+        ]
+      },
+      "bg-card": {
+        "role": "neutral",
+        "displayName": "Panel Graphite",
+        "tonalRamp": [
+          "oklch(15% 0.0023 254.06)",
+          "oklch(26% 0.0058 254.06)",
+          "oklch(37% 0.0094 254.06)",
+          "oklch(49% 0.0114 254.06)",
+          "oklch(61% 0.0114 254.06)",
+          "oklch(73% 0.0110 254.06)",
+          "oklch(85% 0.0064 254.06)",
+          "oklch(95% 0.0027 254.06)"
+        ]
+      },
+      "bg-input": {
+        "role": "neutral",
+        "displayName": "Input Recess",
+        "tonalRamp": [
+          "oklch(15% 0.0022 260.65)",
+          "oklch(26% 0.0058 260.65)",
+          "oklch(37% 0.0093 260.65)",
+          "oklch(49% 0.0112 260.65)",
+          "oklch(61% 0.0112 260.65)",
+          "oklch(73% 0.0108 260.65)",
+          "oklch(85% 0.0064 260.65)",
+          "oklch(95% 0.0026 260.65)"
+        ]
+      },
+      "bg-terminal": {
+        "role": "neutral",
+        "displayName": "Terminal Recess",
+        "tonalRamp": [
+          "oklch(15% 0.0023 260.65)",
+          "oklch(26% 0.0058 260.65)",
+          "oklch(37% 0.0094 260.65)",
+          "oklch(49% 0.0113 260.65)",
+          "oklch(61% 0.0113 260.65)",
+          "oklch(73% 0.0109 260.65)",
+          "oklch(85% 0.0064 260.65)",
+          "oklch(95% 0.0026 260.65)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Surface Seam",
+        "tonalRamp": [
+          "oklch(15% 0.0033 255.63)",
+          "oklch(26% 0.0084 255.63)",
+          "oklch(37% 0.0135 255.63)",
+          "oklch(49% 0.0163 255.63)",
+          "oklch(61% 0.0163 255.63)",
+          "oklch(73% 0.0158 255.63)",
+          "oklch(85% 0.0092 255.63)",
+          "oklch(95% 0.0038 255.63)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "tonalRamp": [
+          "oklch(15% 0.0043 253.51)",
+          "oklch(26% 0.0111 253.51)",
+          "oklch(37% 0.0179 253.51)",
+          "oklch(49% 0.0216 253.51)",
+          "oklch(61% 0.0216 253.51)",
+          "oklch(73% 0.0209 253.51)",
+          "oklch(85% 0.0122 253.51)",
+          "oklch(95% 0.0050 253.51)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Primary Text",
+        "tonalRamp": [
+          "oklch(15% 0.0008 236.50)",
+          "oklch(26% 0.0022 236.50)",
+          "oklch(37% 0.0035 236.50)",
+          "oklch(49% 0.0042 236.50)",
+          "oklch(61% 0.0042 236.50)",
+          "oklch(73% 0.0041 236.50)",
+          "oklch(85% 0.0024 236.50)",
+          "oklch(95% 0.0010 236.50)"
+        ]
+      },
+      "text-dim": {
+        "role": "neutral",
+        "displayName": "Supporting Text",
+        "tonalRamp": [
+          "oklch(15% 0.0033 253.93)",
+          "oklch(26% 0.0086 253.93)",
+          "oklch(37% 0.0138 253.93)",
+          "oklch(49% 0.0167 253.93)",
+          "oklch(61% 0.0167 253.93)",
+          "oklch(73% 0.0161 253.93)",
+          "oklch(85% 0.0095 253.93)",
+          "oklch(95% 0.0039 253.93)"
+        ]
+      },
+      "text-mute": {
+        "role": "neutral",
+        "displayName": "Metadata Text",
+        "tonalRamp": [
+          "oklch(15% 0.0040 250.66)",
+          "oklch(26% 0.0102 250.66)",
+          "oklch(37% 0.0164 250.66)",
+          "oklch(49% 0.0198 250.66)",
+          "oklch(61% 0.0198 250.66)",
+          "oklch(73% 0.0191 250.66)",
+          "oklch(85% 0.0112 250.66)",
+          "oklch(95% 0.0046 250.66)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Page heading",
+        "purpose": "Secondary-route headings."
+      },
+      "job-title": {
+        "displayName": "Job title",
+        "purpose": "Current file or idle status."
+      },
+      "title": {
+        "displayName": "Section heading",
+        "purpose": "Compact panel labels."
+      },
+      "body": {
+        "displayName": "Body baseline",
+        "purpose": "Global inherited typography."
+      },
+      "button": {
+        "displayName": "Operational control",
+        "purpose": "Standard button text."
+      },
+      "label": {
+        "displayName": "Metadata label",
+        "purpose": "Units, state, and supporting details."
+      },
+      "reading": {
+        "displayName": "Temperature reading",
+        "purpose": "Tabular current temperatures."
+      },
+      "mono": {
+        "displayName": "Technical text",
+        "purpose": "Commands and technical values."
+      }
+    },
+    "shadows": [
+      {
+        "name": "print-dialog",
+        "value": "0 20px 80px #0008",
+        "purpose": "Print setup only; ordinary panels remain flat."
+      },
+      {
+        "name": "active-navigation",
+        "value": "inset 0 0 0 1px #376b47",
+        "purpose": "Stroke defining the active navigation item."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "background 0.15s, border-color 0.15s",
+        "purpose": "Buttons."
+      },
+      {
+        "name": "switch-transition",
+        "value": "transform 0.15s",
+        "purpose": "Light-switch thumb."
+      },
+      {
+        "name": "progress-transition",
+        "value": "width 0.2s",
+        "purpose": "Progress fill."
+      },
+      {
+        "name": "spinner",
+        "value": "spin 0.7s linear infinite",
+        "purpose": "Loading feedback."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Animation and transition duration under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-workspace-min",
+        "value": "1700px"
+      },
+      {
+        "name": "compact-desktop-max",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile-max",
+        "value": "780px"
+      },
+      {
+        "name": "narrow-phone-max",
+        "value": "370px"
+      },
+      {
+        "name": "confirmation-actions-below",
+        "value": "40rem"
+      }
+    ],
+    "focus": {
+      "outline": "2px solid var(--green)",
+      "outlineOffset": "3px"
+    },
+    "backdrop": {
+      "value": "#06090dc9",
+      "purpose": "Native print and confirmation dialog backdrops."
+    },
+    "tonalRampNote": "Generated OKLCH inspection ramps, not additional application color tokens; source colors remain normative in DESIGN.md."
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Shared operational button geometry with source-matched state styling.",
+      "html": "<button type=\"button\" class=\"ds-button-primary\">Start print</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:#252b33;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s;background:var(--accent,#38d76d);border-color:var(--accent,#38d76d);color:var(--accent-ink,#082b13);font-weight:600}.ds-button-primary:hover:not(:disabled){background:#68e890;border-color:#68e890;color:#082b13}.ds-button-primary:active:not(:disabled){background:#3a4653}.ds-button-primary:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-button-primary:disabled{opacity:.43;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Shared operational button geometry with source-matched state styling.",
+      "html": "<button type=\"button\" class=\"ds-button-secondary\">Back to files</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:#252b33;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s;}.ds-button-secondary:hover:not(:disabled){background:#333d48;border-color:#7a8696}.ds-button-secondary:active:not(:disabled){background:#3a4653}.ds-button-secondary:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-button-secondary:disabled{opacity:.43;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Shared operational button geometry with source-matched state styling.",
+      "html": "<button type=\"button\" class=\"ds-button-ghost\">Close</button>",
+      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:#252b33;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s;background:transparent;border-color:transparent;color:var(--text-dim,#b5bdc7)}.ds-button-ghost:hover:not(:disabled){background:#2c333c;border-color:transparent;color:var(--text,#edf0f2)}.ds-button-ghost:active:not(:disabled){background:#3a4653}.ds-button-ghost:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-button-ghost:disabled{opacity:.43;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button-ghost{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Shared operational button geometry with source-matched state styling.",
+      "html": "<button type=\"button\" class=\"ds-button-danger\">Delete file</button>",
+      "css": ".ds-button-danger{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:#252b33;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s;background:#462b2c;border-color:#7c4848;color:#ffd4ce}.ds-button-danger:hover:not(:disabled){background:#333d48;border-color:#7a8696}.ds-button-danger:active:not(:disabled){background:#3a4653}.ds-button-danger:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-button-danger:disabled{opacity:.43;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button-danger{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Warning Button",
+      "kind": "button",
+      "refersTo": "button-warning",
+      "description": "Shared operational button geometry with source-matched state styling.",
+      "html": "<button type=\"button\" class=\"ds-button-warning\">Continue</button>",
+      "css": ".ds-button-warning{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:#252b33;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s;background:#3b3222;border-color:#695638;color:#f4d398}.ds-button-warning:hover:not(:disabled){background:#333d48;border-color:#7a8696}.ds-button-warning:active:not(:disabled){background:#3a4653}.ds-button-warning:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-button-warning:disabled{opacity:.43;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-button-warning{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Dark recessed field with visible focus and disabled states.",
+      "html": "<input class=\"ds-input\" aria-label=\"Target temperature\" placeholder=\"Target temperature\" />",
+      "css": ".ds-input{width:100%;height:38px;border:1px solid var(--border-strong,#48515c);border-radius:6px;background:var(--bg-input,#111419);color:var(--text,#edf0f2);padding:0 11px;font-family:'Inter Variable',system-ui,sans-serif;font-size:13px;caret-color:var(--green,#38d76d)}.ds-input::placeholder{color:var(--text-mute,#959faa)}.ds-input:focus{border-color:var(--green,#38d76d)}.ds-input:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-input:disabled{opacity:.45}"
+    },
+    {
+      "name": "Workspace Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Icon-and-label navigation with a tinted active destination.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main navigation\"><a href=\"#overview\" aria-current=\"page\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z\"/></svg>Overview</a><a href=\"#files\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3z\"/></svg>Files</a></nav>",
+      "css": ".ds-nav{display:flex;gap:6px;height:49px;padding:6px 22px;background:#1b2026;border-bottom:1px solid var(--border,#323840);font-family:'Inter Variable',system-ui,sans-serif}.ds-nav a{display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:500;color:var(--text-dim,#b5bdc7)}.ds-nav a:hover{background:#2b323b;color:var(--text,#edf0f2)}.ds-nav a[aria-current=page]{background:#273c2e;color:#9cf2b7;box-shadow:inset 0 0 0 1px #376b47}.ds-nav a:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}@media(max-width:780px){.ds-nav{padding:5px 9px;gap:2px}.ds-nav a{flex:1;justify-content:center;padding:0 8px;gap:6px;font-size:10px}}@media(max-width:370px){.ds-nav a{flex-direction:column;gap:3px;font-size:9px}}"
+    },
+    {
+      "name": "Section Panel",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat bordered surface; separation comes from tone and seams rather than shadow.",
+      "html": "<section class=\"ds-card\"><h2>Printer controls</h2><p>Movement, heaters, and maintenance.</p></section>",
+      "css": ".ds-card{display:flex;flex-direction:column;gap:20px;min-width:0;padding:22px;border:1px solid var(--border,#323840);border-radius:12px;background:var(--bg-card,#1a1e23);color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif}.ds-card h2{margin:0;font-size:13px;font-weight:600}.ds-card p{margin:0;color:var(--text-mute,#959faa);font-size:12px;line-height:1.7}@media(max-width:780px){.ds-card{padding:18px}}"
+    },
+    {
+      "name": "Filament Source Choice",
+      "kind": "custom",
+      "refersTo": "source-choice-selected",
+      "description": "Native radio choices preserve explicit CFS versus external-spool selection.",
+      "html": "<fieldset class=\"ds-source\"><legend>Where is your filament?</legend><label><input type=\"radio\" name=\"ds-source\" checked /><span><strong>CFS</strong><small>Choose a slot for each filament</small></span></label><label><input type=\"radio\" name=\"ds-source\" /><span><strong>External spool</strong><small>Filament loaded on the spool holder</small></span></label></fieldset>",
+      "css": ".ds-source{display:grid;gap:10px;border:0;margin:0;padding:0;color:var(--text,#edf0f2);font-family:'Inter Variable',system-ui,sans-serif}.ds-source legend{font-size:12px;color:var(--text-dim,#b5bdc7);margin-bottom:12px}.ds-source label{display:flex;align-items:center;gap:12px;border:1px solid var(--border-strong,#48515c);padding:14px;border-radius:7px;cursor:pointer}.ds-source label:has(input:checked){border-color:#38d76d;background:#203a2b}.ds-source input{accent-color:var(--green,#38d76d)}.ds-source input:focus-visible{outline:2px solid var(--green,#38d76d);outline-offset:3px}.ds-source strong{font-size:13px;font-weight:550}.ds-source small{display:block;font-size:11px;color:var(--text-dim,#b5bdc7);margin-top:5px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Graphite Printer Workspace",
+    "overview": "A compact operational interface: graphite chrome, near-white sans-serif labels, thin seams, and restrained Creality green. The workspace prioritizes trustworthy printer state and clearly bounded controls over decorative presentation.\n\nKeep the dense desktop-tool character on phones through reflow, not by shrinking every control. Cream surfaces, serif display headlines, lifestyle copy, and decorative printer illustrations are outside this visual world.",
+    "keyCharacteristics": [
+      "Dense, visibly grouped work areas.",
+      "Plain printer terminology and tabular readings.",
+      "Green actions and selections; explicit warning and error states."
+    ],
+    "rules": [
+      {
+        "name": "The State Before Decoration Rule",
+        "body": "Color communicates action, selection, progress, or printer state; pair status color with a readable label.",
+        "section": "colors"
+      },
+      {
+        "name": "The Plain Label Rule",
+        "body": "Use short, literal operational labels rather than promotional language or invented section slogans.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do keep plain labels, visible boundaries, and tabular printer readings.",
+      "Do use green for actionable or meaningful state, with text that explains it.",
+      "Do preserve physical filament-slot labels and swatches across overview and print setup.",
+      "Do reflow controls and allow long filenames to wrap on phones."
+    ],
+    "donts": [
+      "Don't reintroduce cream-and-serif styling, decorative printer art, or lifestyle copy.",
+      "Don't communicate warning, error, or connection state through color alone.",
+      "Don't hide active-job locks or replace missing telemetry with reassuring invented readings.",
+      "Don't use a modal shadow as the default treatment for ordinary panels."
+    ]
+  }
+}

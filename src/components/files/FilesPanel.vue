@@ -3,19 +3,53 @@ import { computed, ref, onMounted } from 'vue'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
-import { getFileList, deleteFile, renameFile, type FileInfo } from '@/api/moonraker'
+import {
+  getFileList,
+  deleteFile,
+  renameFile,
+  type FileInfo,
+} from '@/api/moonraker'
 import { uploadFileKlipper4408 } from '@/api/creality'
+import PrintDialog from './PrintDialog.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { usePrinterWs } from '@/composables/usePrinterWs'
-import { fmtSize, fmtDate, splitPath, replaceBasename, errMsg } from '@/utils/format'
-import { requestConfirmation, requestTextInput } from '@/composables/useConfirmDialog'
+import {
+  fmtSize,
+  fmtDate,
+  splitPath,
+  replaceBasename,
+  errMsg,
+} from '@/utils/format'
+import {
+  requestConfirmation,
+  requestTextInput,
+} from '@/composables/useConfirmDialog'
 
+const props = defineProps<{ compact?: boolean }>()
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-const printerWs = usePrinterWs()
+const printFile = ref<string | null>(null)
+const search = ref('')
+const visibleFiles = computed(() => {
+  const list = files.value
+    .filter((f) => f.path.toLowerCase().includes(search.value.toLowerCase()))
+    .sort((a, b) =>
+      sort.value === 'name'
+        ? a.path.localeCompare(b.path)
+        : b.modified - a.modified,
+    )
+  return props.compact ? list.slice(0, 4) : list
+})
 
-const jobActive = computed(() => printer.isPrinting || printer.isPaused)
-const ACTIONS_LOCKED_TIP = "Can't modify or start G-code files while a print is active"
+const printerWs = usePrinterWs()
+const jobActive = computed(
+  () => printer.isPrinting || printer.isPaused || !printer.connected,
+)
+const loadError = ref('')
+const sort = ref('newest')
+const ACTIONS_LOCKED_TIP =
+  "Can't modify or start G-code files while a print is active"
 
 const files = ref<FileInfo[]>([])
 const uploading = ref(false)
@@ -27,10 +61,11 @@ const selectedFile = ref<File | null>(null)
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     files.value = await getFileList()
   } catch (e) {
-    banner.show('Failed to fetch files', errMsg(e))
+    loadError.value = errMsg(e) || 'Could not read files from the printer.'
   }
   loading.value = false
 }
@@ -59,7 +94,8 @@ async function rename(f: FileInfo) {
   const currentName = splitPath(f.path)
   const entered = await requestTextInput({
     title: 'Rename G-code file',
-    message: 'Enter a new filename. Keep the G-code extension so the printer can recognize it.',
+    message:
+      'Enter a new filename. Keep the G-code extension so the printer can recognize it.',
     inputLabel: 'Filename',
     initialValue: currentName,
     confirmLabel: 'Rename file',
@@ -69,7 +105,10 @@ async function rename(f: FileInfo) {
   const newName = entered.trim()
   if (!newName || newName === currentName) return
   if (newName === '.' || newName === '..' || /[\\/:*?"<>|]/.test(newName)) {
-    banner.show('Invalid filename', 'Use a filename without slashes or reserved characters.')
+    banner.show(
+      'Invalid filename',
+      'Use a filename without slashes or reserved characters.',
+    )
     return
   }
 
@@ -88,17 +127,13 @@ async function rename(f: FileInfo) {
   }
 }
 
-async function pr(f: FileInfo) {
-  if (jobActive.value) return
-  try {
-    const transport = await printerWs.startPrint(f.path)
-    toast.show(transport === 'websocket' ? `Print request sent for ${f.path}` : `Printing ${f.path}`)
-  } catch (e) {
-    banner.show('Failed to start print', errMsg(e))
-  }
+function pr(f: FileInfo) {
+  if (jobActive.value || !printer.connected) return
+  printFile.value = f.path
 }
 
 async function up() {
+  if (jobActive.value || uploading.value) return
   const f = inp.value?.files?.[0]
   if (!f) return
   selectedFile.value = f
@@ -120,74 +155,135 @@ async function up() {
 
 onMounted(load)
 </script>
-
 <template>
-  <div class="card-panel h-full">
-    <div class="flex items-center justify-between gap-3 max-sm:items-start">
-      <div class="t-title">Files</div>
-      <div class="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-end max-sm:gap-x-2 max-sm:gap-y-1">
-        <span v-if="jobActive" class="text-[11px] text-[var(--amber)] uppercase tracking-wider max-sm:order-3 max-sm:w-full max-sm:text-right" title="File actions unlock when the active print finishes">
-          Actions locked
-        </span>
-        <span v-if="!loading && files.length > 0" class="t-mute font-mono">{{ files.length }} {{ files.length === 1 ? 'file' : 'files' }}</span>
-        <button class="btn btn-ghost btn-sm" @click="load" :disabled="loading" aria-label="Reload files">
-          <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+  <section class="files-panel" :class="{ 'files-compact': compact }">
+    <div class="section-heading">
+      <h2>
+        {{ compact ? 'Files ready to print' : 'G-code files'
+        }}<span v-if="!loading" class="count-label">{{ files.length }}</span>
+      </h2>
+      <div class="file-toolbar">
+        <RouterLink v-if="compact" to="/files" class="btn btn-ghost btn-sm"
+          >All files</RouterLink
+        ><button
+          class="btn btn-ghost btn-sm"
+          :disabled="loading"
+          aria-label="Refresh files"
+          @click="load"
+        >
+          <AppIcon name="refresh" :size="16" />
         </button>
       </div>
     </div>
-
-    <!-- Upload zone -->
-    <label class="flex items-center gap-3 cursor-pointer">
-      <div class="flex-1 flex items-center gap-3 px-4 py-3.5 rounded-lg bg-[var(--bg-input)] border border-dashed border-[var(--border-strong)] hover:border-white/25 transition-colors min-w-0">
-        <svg class="w-4 h-4 text-[var(--text-mute)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-        <span v-if="selectedFile" class="text-[13px] text-[var(--text)] font-mono truncate">{{ selectedFile.name }}</span>
-        <span v-else class="text-[13px] text-[var(--text-mute)] uppercase tracking-wider">Choose G‑code file…</span>
-      </div>
-      <input ref="inp" type="file" accept=".gcode,.g,.gco" class="sr-only" @change="up" />
-    </label>
-
-    <div v-if="uploading" class="-mt-3">
-      <div class="flex items-center justify-between mb-2 t-mute text-[12px]">
-        <span>Uploading…</span>
-        <span class="font-mono">{{ uploadProgress }}%</span>
-      </div>
-      <progress class="progress" :value="uploadProgress" max="100"></progress>
+    <div v-if="!compact" class="file-tools">
+      <label class="search-field"
+        ><AppIcon name="search" :size="17" /><input
+          v-model="search"
+          type="search"
+          placeholder="Search files"
+          aria-label="Search files"
+      /></label>
+      <select v-model="sort" class="input sort-select" aria-label="Sort files">
+        <option value="newest">Newest first</option>
+        <option value="name">Name A–Z</option>
+      </select>
+      <label
+        class="btn btn-primary upload-button"
+        :class="{ 'is-disabled': jobActive || uploading }"
+        ><AppIcon name="upload" :size="16" />{{
+          uploading ? 'Uploading…' : 'Upload G-code'
+        }}<input
+          ref="inp"
+          type="file"
+          accept=".gcode,.g,.gco"
+          class="sr-only"
+          :disabled="jobActive || uploading"
+          @change="up"
+      /></label>
     </div>
-
-    <div class="divider" />
-
-    <!-- File list -->
-    <div class="-mx-7 lg:-mx-8 flex-1 min-h-0 max-sm:flex-none max-sm:max-h-[320px] overflow-y-auto">
-      <div v-if="loading" class="empty-state">
-        <span class="spinner spinner-sm"></span>
-        <p class="mt-3 t-mute">Loading…</p>
-      </div>
-
-      <div v-else-if="files.length === 0" class="empty-state">
-        <p class="text-[13px]">No files on the printer</p>
-      </div>
-
-      <ul v-else class="divide-y divide-[var(--border)]">
-        <li v-for="f in files" :key="f.path" class="px-7 lg:px-8 py-4 list-row-hover group">
-          <div class="flex items-center gap-4 max-sm:flex-wrap max-sm:gap-2">
-            <div class="flex-1 min-w-0">
-              <div class="row-title" :title="f.path">{{ splitPath(f.path) }}</div>
-              <div class="row-meta">
-                {{ fmtSize(f.size) }} · {{ fmtDate(f.modified) }}
-              </div>
-            </div>
-            <div class="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
-              <button class="btn btn-primary btn-sm" :disabled="jobActive" :title="jobActive ? ACTIONS_LOCKED_TIP : `Print ${splitPath(f.path)}`" @click="pr(f)">Print</button>
-              <button class="btn btn-sm" :disabled="jobActive || !f.permissions.includes('w')" :title="jobActive ? ACTIONS_LOCKED_TIP : `Rename ${splitPath(f.path)}`" @click="rename(f)">Rename</button>
-              <button class="btn btn-danger btn-sm" :disabled="jobActive || !f.permissions.includes('w')" :title="jobActive ? ACTIONS_LOCKED_TIP : `Delete ${splitPath(f.path)}`" @click="del(f)">Delete</button>
-            </div>
-          </div>
-        </li>
-      </ul>
+    <div v-if="uploading" class="upload-progress">
+      <span
+        >{{ selectedFile?.name }}<strong>{{ uploadProgress }}%</strong></span
+      ><progress
+        class="progress"
+        :value="uploadProgress"
+        max="100"
+        aria-label="Upload progress"
+      />
     </div>
-  </div>
+    <p v-if="printerWs.printStarting.value" class="inline-notice" role="status">
+      Print request sent. Waiting for the printer to report its state.
+    </p>
+    <p v-else-if="jobActive && !compact" class="file-lock-note">
+      {{
+        printer.connected
+          ? 'Print, rename, delete, and upload actions are locked during a print.'
+          : 'Reconnect to the printer to modify files or start a job.'
+      }}
+    </p>
+    <div v-if="loadError" class="panel-empty" role="alert">
+      <AppIcon name="files" :size="26" /><strong>Could not load files</strong>
+      <p>{{ loadError }}</p>
+      <button class="btn btn-sm" @click="load">Retry</button>
+    </div>
+    <div
+      v-else-if="loading"
+      class="file-skeleton"
+      aria-label="Loading files"
+      role="status"
+    >
+      <div v-for="n in 3" :key="n"><span /><span /></div>
+    </div>
+    <div v-else-if="!files.length" class="panel-empty">
+      <AppIcon name="files" :size="26" /><strong>No G-code files yet</strong>
+      <p>Upload a sliced file to prepare a print.</p>
+      <RouterLink v-if="compact" to="/files" class="btn btn-primary"
+        >Upload a file</RouterLink
+      >
+    </div>
+    <div v-else-if="!visibleFiles.length" class="panel-empty">
+      <strong>No matching files</strong>
+      <p>Try another filename or clear your search.</p>
+      <button class="btn btn-sm" @click="search = ''">Clear search</button>
+    </div>
+    <ul v-else class="file-list">
+      <li v-for="f in visibleFiles" :key="f.path">
+        <span class="file-icon"><AppIcon name="file" :size="20" /></span>
+        <div class="file-identity">
+          <strong :title="f.path">{{ splitPath(f.path) }}</strong
+          ><span
+            >{{ fmtSize(f.size)
+            }}<span v-if="!compact"> · {{ fmtDate(f.modified) }}</span></span
+          >
+        </div>
+        <div class="file-actions">
+          <button
+            class="btn btn-sm"
+            :disabled="jobActive || printerWs.printStarting.value"
+            :title="jobActive ? ACTIONS_LOCKED_TIP : 'Set up this print'"
+            @click="pr(f)"
+          >
+            <AppIcon name="play" :size="13" />Print</button
+          ><template v-if="!compact"
+            ><button
+              class="btn btn-ghost btn-sm"
+              :disabled="jobActive || !f.permissions.includes('w')"
+              :title="jobActive ? ACTIONS_LOCKED_TIP : 'Rename file'"
+              @click="rename(f)"
+            >
+              Rename</button
+            ><button
+              class="btn btn-ghost btn-sm destructive-action"
+              :disabled="jobActive || !f.permissions.includes('w')"
+              :title="jobActive ? ACTIONS_LOCKED_TIP : 'Delete file'"
+              @click="del(f)"
+            >
+              <AppIcon name="trash" :size="15" /><span>Delete</span>
+            </button></template
+          >
+        </div>
+      </li>
+    </ul>
+    <PrintDialog v-if="printFile" :path="printFile" @close="printFile = null" />
+  </section>
 </template>

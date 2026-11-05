@@ -1,159 +1,69 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
+import { usePrinterWs } from '@/composables/usePrinterWs'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
-import { usePrinterWs } from '@/composables/usePrinterWs'
-import { fanGcode, type CrealityFan } from '@/printer/crealityProtocol'
-import { errMsg } from '@/utils/format'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
-
+import QuickControls from './QuickControls.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
+const ws = usePrinterWs()
 const banner = useBannerStore()
 const toast = useToastStore()
-const printerWs = usePrinterWs()
-
-const jog = ref(10)
-const fanSliders = ref([printer.fanPart, printer.fanAux, printer.fanChamber])
-const ledBusy = ref(false)
-const jobActive = computed(() => printer.isPrinting || printer.isPaused)
-
-watch(() => [printer.fanPart, printer.fanAux, printer.fanChamber], ([p, a, c]) => {
-  fanSliders.value = [p, a, c]
-})
-
-async function cmd(script: string, label?: string) {
-  if (!import.meta.env.VITE_PRINTER_HOST) return
+const busy = ref(false)
+const distance = ref(10)
+const blocked = computed(
+  () => printer.isPrinting || printer.isPaused || !printer.connected,
+)
+const lockReason = computed(() =>
+  !printer.connected ? 'Printer disconnected' : 'Locked while printing',
+)
+const targets = reactive({ nozzle: '200', bed: '60', chamber: '0' })
+const heaters = computed(() => [
+  {
+    id: 'nozzle' as const,
+    label: 'Nozzle',
+    code: 'M104',
+    current: printer.extruderTemp,
+  },
+  { id: 'bed' as const, label: 'Bed', code: 'M140', current: printer.bedTemp },
+  {
+    id: 'chamber' as const,
+    label: 'Chamber',
+    code: 'M141',
+    current: printer.chamberTemp,
+  },
+])
+async function run(script: string, label: string) {
+  if (blocked.value || busy.value) return
+  busy.value = true
   try {
-    const transport = await printerWs.sendGcodeCommand(script)
-    toast.show(label
-      ? `${label} · ${transport === 'websocket' ? 'sent' : 'accepted'}`
-      : `${transport === 'websocket' ? 'Sent' : 'Accepted'} · ${script.split('\n')[0]}`)
+    await ws.sendGcodeCommand(script)
+    toast.show(label + ' request sent')
   } catch (e) {
-    banner.show('Failed to send G-code', errMsg(e))
+    banner.show(
+      'Command could not be sent',
+      e instanceof Error ? e.message : undefined,
+    )
+  } finally {
+    busy.value = false
   }
 }
-
-async function allOff() {
-  if (jobActive.value) return
-  try {
-    const transports = await Promise.all([
-      printerWs.sendGcodeCommand('M104 S0'),
-      printerWs.sendGcodeCommand('M140 S0'),
-      printerWs.sendGcodeCommand('M141 S0'),
-    ])
-    toast.show(transports.includes('websocket') ? 'Heater-off commands sent' : 'Heater-off commands accepted')
-  } catch (e) {
-    banner.show('Failed to turn heaters off', errMsg(e))
-  }
-}
-
-async function setTemp(heater: string, temp: string) {
-  if (jobActive.value) return
-  const t = parseFloat(temp)
-  if (isNaN(t)) return
-
-  // M-codes via the K2 Plus WS work (the console uses the same
-  // channel). Klipper's `SET_HEATER_TEMPERATURE` and the K1's
-  // `boxTempControl` param both 500 / fail on the K2 Plus firmware,
-  // so the universal fallback is the M-code path.
-  if (heater === 'heater_generic chamber_heater') {
-    // M141 sets the chamber target. K2 Plus firmware runs Klipper
-    // underneath so this should work; if not it no-ops silently.
-    await cmd(`M141 S${t}`, `Chamber target \u00b7 ${t}\u00b0C`)
+async function temperature(h: (typeof heaters.value)[number]) {
+  const target = Number(targets[h.id])
+  if (!targets[h.id].trim() || !Number.isFinite(target) || target < 0) {
+    banner.show('Invalid temperature', 'Enter a non-negative number.')
     return
   }
-
-  // M104 = extruder, M140 = bed. Both work via `gcodeCmd`.
-  const mcode = heater === 'heater_bed' ? `M140 S${t}` : `M104 S${t}`
-  await cmd(mcode, `${heater === 'heater_bed' ? 'Bed' : 'Extruder'} target \u00b7 ${t}\u00b0C`)
+  await run(h.code + ' S' + target, h.label + ' temperature')
 }
-
-async function runPrintAction(label: string, action: () => Promise<'websocket' | 'moonraker'>) {
-  try {
-    const transport = await action()
-    toast.show(`${label} ${transport === 'websocket' ? 'request sent' : 'accepted'}`)
-  } catch (e) {
-    banner.show(`${label} failed`, errMsg(e))
-  }
+function jog(axis: string, sign: number) {
+  return run(
+    `G91\nG1 ${axis}${distance.value * sign} F${axis === 'Z' ? 1200 : 6000}\nG90`,
+    axis + ' movement',
+  )
 }
-
-function pauseJob() {
-  return runPrintAction('Pause print', printerWs.pausePrint)
-}
-
-function resumeJob() {
-  return runPrintAction('Resume print', printerWs.resumePrint)
-}
-
-async function cancelJob() {
-  const confirmed = await requestConfirmation({
-    title: 'Cancel print?',
-    message: 'The printer will stop the current job. This cannot be resumed.',
-    confirmLabel: 'Cancel print',
-    tone: 'danger',
-  })
-  if (!confirmed || !jobActive.value) return
-  return runPrintAction('Cancel print', printerWs.cancelPrint)
-}
-
-async function stopPrinter() {
-  const confirmed = await requestConfirmation({
-    title: 'Emergency stop?',
-    message: 'This immediately halts the printer and requires a firmware restart.',
-    confirmLabel: 'Emergency stop',
-    tone: 'danger',
-  })
-  if (!confirmed) return
-  return runPrintAction('Emergency stop', printerWs.emergencyStop)
-}
-
-async function setFan(fan: CrealityFan, pct: number) {
-  await cmd(fanGcode(fan, pct), `Fan \u00b7 ${Math.round(pct)}%`)
-}
-
-async function toggleLed() {
-  if (ledBusy.value) return
-  const enabled = !printer.ledState
-  ledBusy.value = true
-  try {
-    const transport = await printerWs.setLight(enabled)
-    toast.show(`LED ${enabled ? 'ON' : 'OFF'} · ${transport === 'websocket' ? 'sent' : 'accepted'}`)
-  } catch (e) {
-    banner.show('Failed to toggle chamber light', errMsg(e))
-  } finally {
-    ledBusy.value = false
-  }
-}
-
-interface HeaterConfig {
-  label: string
-  heater: 'extruder' | 'heater_bed' | 'heater_generic chamber_heater'
-  current: number
-  defaultTarget: number
-  model: { value: string }
-}
-
-const tE = ref(String(printer.extruderTarget || 200))
-const tB = ref(String(printer.bedTarget || 60))
-const tC = ref(String(printer.chamberTarget || 0))
-
-const heaters = computed<HeaterConfig[]>(() => [
-  { label: 'Extruder', heater: 'extruder', current: printer.extruderTemp, defaultTarget: 200, model: tE },
-  { label: 'Bed',      heater: 'heater_bed', current: printer.bedTemp,    defaultTarget: 60,  model: tB },
-  { label: 'Chamber',  heater: 'heater_generic chamber_heater', current: printer.chamberTemp, defaultTarget: 0, model: tC },
-])
-
-function fanLabel(speed: number): string {
-  return `${Math.round(speed * 100)}%`
-}
-
-const fans = [
-  { label: 'Part', type: 'part' },
-  { label: 'Case', type: 'case' },
-  { label: 'Side', type: 'side' },
-] satisfies Array<{ label: string; type: CrealityFan }>
-
 interface UtilityCommand {
   label: string
   gcode: string
@@ -166,12 +76,14 @@ const utilities: UtilityCommand[] = [
   {
     label: 'Load filament',
     gcode: 'LOAD_MATERIAL',
-    confirmation: 'Load filament? The printer may heat the nozzle and move filament.',
+    confirmation:
+      'Load filament? The printer may heat the nozzle and move filament.',
   },
   {
     label: 'Unload filament',
     gcode: 'QUIT_MATERIAL',
-    confirmation: 'Unload filament? The printer may heat the nozzle, cut, and retract filament.',
+    confirmation:
+      'Unload filament? The printer may heat the nozzle, cut, and retract filament.',
   },
 ]
 
@@ -179,300 +91,249 @@ const maintenanceCommands: UtilityCommand[] = [
   {
     label: 'Bed leveling',
     gcode: 'G29',
-    confirmation: 'Run automatic bed leveling? This heats and moves the printer and may take several minutes.',
+    confirmation:
+      'Run automatic bed leveling? This heats and moves the printer and may take several minutes.',
   },
   {
     label: 'Input shaping',
     gcode: 'INPUTSHAPER',
-    confirmation: 'Run input shaping calibration? The printer will home, move, vibrate, and save new calibration values.',
+    confirmation:
+      'Run input shaping calibration? The printer will home, move, vibrate, and save new calibration values.',
   },
   {
     label: 'Belt calibration',
     gcode: 'BELT_TENSION',
-    confirmation: 'Run belt calibration? Keep clear of the printer until it finishes.',
+    confirmation:
+      'Run belt calibration? Keep clear of the printer until it finishes.',
   },
   {
     label: 'Z calibration',
     gcode: 'Z_AXIS_CALIBRATION',
-    confirmation: 'Run Z-axis calibration? The printer will heat, home, clean the nozzle, and replace saved calibration values.',
+    confirmation:
+      'Run Z-axis calibration? The printer will heat, home, clean the nozzle, and replace saved calibration values.',
   },
   {
     label: 'Nozzle PID',
     gcode: 'NOZZLE_PID',
     warning: 'ONLY USE THIS IF NECESSARY',
-    confirmation: 'Run nozzle PID calibration at 230°C and save the result? Only continue if recalibration is necessary.',
+    confirmation:
+      'Run nozzle PID calibration at 230°C and save the result? Only continue if recalibration is necessary.',
   },
   {
     label: 'Bed PID',
     gcode: 'BEDPID',
     warning: 'ONLY USE THIS IF NECESSARY',
-    confirmation: 'Run bed PID calibration at 100°C and save the result? Only continue if recalibration is necessary.',
+    confirmation:
+      'Run bed PID calibration at 100°C and save the result? Only continue if recalibration is necessary.',
   },
 ]
 
-async function runUtility(command: UtilityCommand) {
-  if (jobActive.value) return
+async function utility(command: UtilityCommand) {
+  if (blocked.value || busy.value) return
   if (command.confirmation) {
     const confirmed = await requestConfirmation({
-      title: `${command.label}?`,
+      title: command.label + '?',
       message: command.confirmation,
-      confirmLabel: `Run ${command.label}`,
+      confirmLabel: 'Run ' + command.label,
       tone: 'warning',
     })
-    if (!confirmed || jobActive.value) return
+    if (!confirmed || blocked.value) return
   }
-  if (jobActive.value) return
-  await cmd(command.gcode, command.label)
-}
-
-function runIdleCommand(command: string) {
-  if (jobActive.value) return
-  return cmd(command)
-}
-
-const commandTip = reactive({ text: '', visible: false, x: 0, y: 0 })
-
-interface TooltipHoverEvent {
-  currentTarget: {
-    getBoundingClientRect: () => { left: number; width: number; bottom: number }
-  }
-}
-
-function isTooltipHoverEvent(event: unknown): event is TooltipHoverEvent {
-  if (!event || typeof event !== 'object' || !('currentTarget' in event)) return false
-  const target = event.currentTarget
-  return !!target
-    && typeof target === 'object'
-    && 'getBoundingClientRect' in target
-    && typeof target.getBoundingClientRect === 'function'
-}
-
-function showCommandTip(event: unknown, command: UtilityCommand) {
-  const text = jobActive.value
-    ? `Unavailable during an active print${command.warning ? ` · ${command.warning}` : ''}`
-    : command.warning
-  if (!text || !isTooltipHoverEvent(event)) return
-  const rect = event.currentTarget.getBoundingClientRect()
-  commandTip.text = text
-  commandTip.x = rect.left + rect.width / 2
-  commandTip.y = rect.bottom + 8
-  commandTip.visible = true
-}
-
-function hideCommandTip() {
-  commandTip.visible = false
-}
-
-// 3x3 jog grid: row 0 = Y+, row 1 = X- | home | X+, row 2 = Y-
-// Empty cells kept as nulls so the v-for stays declarative.
-const jogGrid = computed(() => [
-  { key: 'yn', label: 'Y+', gcode: () => `G91\nG1 Y${jog.value} F6000\nG90` },
-  { key: 'yp', label: 'Y−', gcode: () => `G91\nG1 Y-${jog.value} F6000\nG90` },
-  { key: 'xn', label: 'X−', gcode: () => `G91\nG1 X-${jog.value} F6000\nG90` },
-  { key: 'home', label: '⌂', gcode: () => 'G28', home: true },
-  { key: 'xp', label: 'X+', gcode: () => `G91\nG1 X${jog.value} F6000\nG90` },
-])
-
-// Range slider gradient stops
-function fanGradient(value: number) {
-  return `linear-gradient(90deg, var(--green), var(--green) ${value * 100}%, rgba(255,255,255,0.06) ${value * 100}%)`
-}
-function jogGradient(value: number) {
-  const pct = ((value - 10) / 40) * 100
-  return `linear-gradient(90deg, var(--green), var(--green) ${pct}%, rgba(255,255,255,0.06) ${pct}%)`
+  await run(command.gcode, command.label)
 }
 </script>
-
 <template>
-  <div class="card-panel h-full">
-    <div class="t-title">Controls</div>
-
-    <!-- Print controls -->
-    <div class="flex flex-wrap items-center gap-2 max-sm:grid max-sm:grid-cols-2">
-      <button v-if="printer.isPaused" class="btn btn-primary" @click="resumeJob">Resume</button>
-      <button v-if="printer.isPrinting" class="btn btn-warn" @click="pauseJob">Pause</button>
-      <button v-if="printer.isPrinting || printer.isPaused" class="btn" @click="cancelJob">Cancel</button>
-      <span v-if="!printer.isPrinting && !printer.isPaused" class="t-mute uppercase tracking-wider">No active print</span>
-      <button class="btn btn-danger ml-auto shrink-0 max-sm:ml-0 max-sm:col-span-2 max-sm:w-full" @click="stopPrinter">
-        🚨 ABORT
-      </button>
-    </div>
-
-    <div class="divider" />
-
-    <!-- Jog + Temperature (side by side) -->
-    <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-8">
-      <!-- Jog -->
-      <div>
-        <div class="flex items-center justify-between mb-5">
-          <div class="t-title">Jog</div>
-          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
+  <div class="controls-workspace">
+    <div class="control-grid">
+      <section class="control-section">
+        <div class="section-heading">
+          <h2>Movement</h2>
+          <span v-if="blocked" class="lock-label">{{ lockReason }}</span>
         </div>
-        <div class="flex items-center gap-3 mb-5">
-          <span class="t-mute text-[11px] uppercase tracking-wider shrink-0">Distance</span>
-          <input
-            type="range"
-            min="10" max="50" step="10"
-            v-model.number="jog"
-            :disabled="jobActive"
-            class="flex-1 range-slider"
-            :style="{ '--tw-accent': jogGradient(jog) }"
-          />
-          <span class="w-9 text-right font-mono text-[13px] text-[var(--text-dim)] tabular-nums">{{ jog }}mm</span>
-        </div>
-        <div class="flex flex-col items-center gap-4">
-          <div class="grid grid-cols-3 gap-2.5 w-full max-w-[220px]">
-            <div></div>
-            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[0].gcode())">{{ jogGrid[0].label }}</button>
-            <div></div>
-            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[2].gcode())">{{ jogGrid[2].label }}</button>
-            <button class="jog-btn jog-home" :disabled="jobActive" @click="runIdleCommand(jogGrid[3].gcode())">{{ jogGrid[3].label }}</button>
-            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[4].gcode())">{{ jogGrid[4].label }}</button>
-            <div></div>
-            <button class="jog-btn" :disabled="jobActive" @click="runIdleCommand(jogGrid[1].gcode())">{{ jogGrid[1].label }}</button>
-            <div></div>
+        <div class="control-section-body">
+          <div class="distance-control">
+            <label for="jog-distance">Move distance</label
+            ><select
+              id="jog-distance"
+              v-model.number="distance"
+              class="input"
+              :disabled="blocked || busy"
+            >
+              <option v-for="d in [1, 5, 10, 25, 50]" :key="d" :value="d">
+                {{ d }} mm
+              </option>
+            </select>
           </div>
-          <div class="flex items-center gap-2.5">
-            <button class="jog-btn px-7" :disabled="jobActive" @click="runIdleCommand(`G91\nG1 Z${jog} F1200\nG90`)">Z+</button>
-            <button class="jog-btn px-7" :disabled="jobActive" @click="runIdleCommand(`G91\nG1 Z-${jog} F1200\nG90`)">Z−</button>
-          </div>
-          <div class="flex items-center gap-2">
-            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28 X Y')">Home XY</button>
-            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28 Z')">Home Z</button>
-            <button class="btn btn-ghost btn-sm" :disabled="jobActive" @click="runIdleCommand('G28')">Home all</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Temperature -->
-      <div>
-        <div class="flex items-start justify-between mb-5">
-          <div>
-            <div class="t-title">Temperature</div>
-            <span v-if="jobActive" class="hidden max-sm:block mt-1 text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span v-if="jobActive" class="max-sm:hidden text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
-            <button class="btn btn-warn btn-sm" :disabled="jobActive" @click="allOff()">All off</button>
-          </div>
-        </div>
-        <div class="space-y-5">
-          <div v-for="h in heaters" :key="h.label" class="flex items-center gap-4">
-            <div class="flex-1">
-              <div class="flex items-baseline gap-3 mb-2">
-                <span class="t-title">{{ h.label }}</span>
-                <span class="t-mono text-[12px]">{{ h.current.toFixed(1) }}°C</span>
-              </div>
-              <div class="flex items-center gap-2.5">
-                <input v-model="h.model.value" type="number" class="input font-mono" :placeholder="String(h.defaultTarget)" :disabled="jobActive" />
-                <span class="t-mute text-[12px]">°C</span>
-              </div>
+          <div class="motion-controls">
+            <div class="jog-pad">
+              <span /><button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('Y', 1)"
+              >
+                Y+</button
+              ><span /><button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('X', -1)"
+              >
+                X−</button
+              ><button
+                class="jog-btn home-button"
+                :disabled="blocked || busy"
+                aria-label="Home all axes"
+                @click="run('G28', 'Home all axes')"
+              >
+                <AppIcon name="home" :size="19" /></button
+              ><button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('X', 1)"
+              >
+                X+</button
+              ><span /><button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('Y', -1)"
+              >
+                Y−</button
+              ><span />
             </div>
-            <button class="btn btn-primary btn-sm mt-6" :disabled="jobActive" @click="setTemp(h.heater, h.model.value)">Set</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="divider" />
-
-    <!-- Fans + LED (side by side) -->
-    <div class="grid grid-cols-2 max-sm:grid-cols-1 gap-8">
-      <!-- Fans -->
-      <div>
-        <div class="t-title mb-5">Fans</div>
-        <div class="space-y-4">
-          <div v-for="(f, i) in fans" :key="f.label">
-            <div class="flex items-baseline justify-between mb-2">
-              <span class="t-title">{{ f.label }}</span>
-              <span class="t-mono text-[13px]">{{ fanLabel(fanSliders[i]) }}</span>
+            <div class="z-pad">
+              <button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('Z', 1)"
+              >
+                Z+</button
+              ><button
+                class="jog-btn"
+                :disabled="blocked || busy"
+                @click="jog('Z', -1)"
+              >
+                Z−
+              </button>
             </div>
-            <input
-              type="range"
-              min="0" max="1" step="0.05"
-              v-model="fanSliders[i]"
-              class="w-full range-slider"
-              :style="{ '--tw-accent': fanGradient(fanSliders[i]) }"
-              @change="setFan(f.type, fanSliders[i] * 100)"
-            />
           </div>
-        </div>
-      </div>
-
-      <!-- LED + Quick -->
-      <div>
-        <div class="t-title mb-5">Lights</div>
-        <div class="flex items-center gap-4 mb-6">
-          <span class="status-dot w-2.5 h-2.5" :class="printer.ledState ? 'bg-[var(--green)]' : 'bg-[var(--text-mute)]'"></span>
-          <span class="text-[14px] font-medium uppercase tracking-wider" :class="printer.ledState ? 'text-[var(--green)]' : 'text-[var(--text-dim)]'">
-            Chamber {{ printer.ledState ? 'ON' : 'OFF' }}
-          </span>
-          <button class="btn btn-sm ml-auto" :class="printer.ledState ? 'btn-primary' : ''" :disabled="ledBusy" @click="toggleLed()">
-            {{ ledBusy ? 'Switching…' : `Turn ${printer.ledState ? 'off' : 'on'}` }}
-          </button>
-        </div>
-
-        <div class="divider mb-5" />
-
-        <div class="flex items-center justify-between mb-4">
-          <div class="t-title">Utilities</div>
-          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span
-            v-for="c in utilities"
-            :key="c.gcode"
-            class="inline-flex"
-            @mouseenter="showCommandTip($event, c)"
-            @mouseleave="hideCommandTip"
-          >
-            <button class="btn btn-sm" :disabled="jobActive" @click="runUtility(c)">{{ c.label }}</button>
-          </span>
-        </div>
-
-        <div class="divider my-5" />
-
-        <div class="flex items-center justify-between mb-4">
-          <div class="t-title">Maintenance</div>
-          <span v-if="jobActive" class="text-[10px] text-[var(--amber)] uppercase tracking-wider">Locked while printing</span>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span
-            v-for="c in maintenanceCommands"
-            :key="c.gcode"
-            class="inline-flex"
-            @mouseenter="showCommandTip($event, c)"
-            @mouseleave="hideCommandTip"
-          >
+          <div class="homing-actions">
             <button
               class="btn btn-sm"
-              :class="c.warning ? 'btn-warn' : ''"
-              :disabled="jobActive"
-              @click="runUtility(c)"
-            >{{ c.label }}</button>
-          </span>
+              :disabled="blocked || busy"
+              @click="run('G28 X Y', 'Home X/Y')"
+            >
+              Home X/Y</button
+            ><button
+              class="btn btn-sm"
+              :disabled="blocked || busy"
+              @click="run('G28 Z', 'Home Z')"
+            >
+              Home Z
+            </button>
+          </div>
+          <dl class="control-position">
+            <div v-for="axis in ['x', 'y', 'z'] as const" :key="axis">
+              <dt>{{ axis.toUpperCase() }}</dt>
+              <dd>{{ printer.position[axis].toFixed(1) }} mm</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+      <section class="control-section">
+        <div class="section-heading">
+          <h2>Heaters</h2>
+          <span v-if="blocked" class="lock-label">{{ lockReason }}</span>
+        </div>
+        <div class="control-section-body">
+          <form
+            v-for="h in heaters"
+            :key="h.id"
+            class="heater-form"
+            @submit.prevent="temperature(h)"
+          >
+            <label :for="'heater-' + h.id"
+              >{{ h.label
+              }}<span
+                >{{ printer.connected ? h.current.toFixed(1) : '—' }}°C</span
+              ></label
+            >
+            <div>
+              <input
+                :id="'heater-' + h.id"
+                v-model="targets[h.id]"
+                class="input"
+                type="number"
+                min="0"
+                step="1"
+                :disabled="blocked || busy"
+              /><span>°C</span
+              ><button class="btn btn-sm" :disabled="blocked || busy">
+                Set
+              </button>
+            </div>
+          </form>
+          <button
+            class="btn btn-warn all-heaters-off"
+            :disabled="blocked || busy"
+            @click="run('M104 S0\nM140 S0\nM141 S0', 'All heaters off')"
+          >
+            Turn all heaters off
+          </button>
+        </div>
+      </section>
+      <QuickControls />
+    </div>
+    <section class="control-section">
+      <div class="section-heading">
+        <h2>Filament & motors</h2>
+        <span v-if="blocked" class="lock-label">{{ lockReason }}</span>
+      </div>
+      <div class="utility-grid">
+        <button
+          v-for="command in utilities"
+          :key="command.gcode"
+          class="btn"
+          :disabled="blocked || busy"
+          @click="utility(command)"
+        >
+          {{ command.label }}
+        </button>
+      </div>
+    </section>
+    <section class="control-section">
+      <div class="section-heading">
+        <h2>Maintenance</h2>
+        <span v-if="blocked" class="lock-label">{{ lockReason }}</span>
+      </div>
+      <div class="maintenance-grid">
+        <div
+          v-for="command in maintenanceCommands"
+          :key="command.gcode"
+          class="utility-entry"
+          :tabindex="command.warning ? 0 : undefined"
+        >
+          <button
+            class="btn"
+            :class="{ 'btn-warn': command.warning }"
+            :disabled="blocked || busy"
+            :aria-describedby="
+              command.warning ? 'tip-' + command.gcode : undefined
+            "
+            @click="utility(command)"
+          >
+            {{ command.label }}</button
+          ><span
+            v-if="command.warning"
+            :id="'tip-' + command.gcode"
+            role="tooltip"
+            class="utility-tooltip"
+            >{{ command.warning }}</span
+          >
         </div>
       </div>
-    </div>
+      <p class="section-note">
+        Calibration heats or moves the printer. Review the confirmation before
+        continuing.
+      </p>
+    </section>
   </div>
-
-  <Teleport to="body">
-    <Transition name="command-tip">
-      <div
-        v-if="commandTip.visible && commandTip.text"
-        class="fixed z-[100] px-3 py-1.5 rounded-lg term-panel text-[12px] font-medium leading-snug whitespace-nowrap shadow-xl pointer-events-none"
-        :style="{ top: `${commandTip.y}px`, left: `${commandTip.x}px`, transform: 'translateX(-50%)' }"
-        role="tooltip"
-      >{{ commandTip.text }}</div>
-    </Transition>
-  </Teleport>
 </template>
-
-<style scoped>
-.command-tip-enter-active, .command-tip-leave-active {
-  transition: opacity 0.12s ease;
-}
-.command-tip-enter-from, .command-tip-leave-to {
-  opacity: 0;
-}
-</style>

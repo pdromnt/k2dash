@@ -5,6 +5,7 @@ import { usePrinterWs } from '@/composables/usePrinterWs'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { fmtSize, fmtDate, fmtDur, splitPath } from '@/utils/format'
+import { isPreview } from '@/utils/preview'
 import { HOST } from '@/utils/env'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
 
@@ -23,6 +24,7 @@ function videoFilename(f: TimelapseFile) {
 }
 
 function videoUrl(f: TimelapseFile) {
+  if (isPreview) return ''
   return `http://${HOST}:80/downloads/video/${encodeURIComponent(videoFilename(f))}`
 }
 
@@ -37,18 +39,24 @@ type SavePicker = (options: { suggestedName: string }) => Promise<{
 }>
 
 async function downloadTimelapse(f: TimelapseFile) {
-  if (downloading.value) return
+  if (isPreview || downloading.value) return
   downloading.value = f.video
   try {
     // Where available, stream directly to disk instead of holding the
     // entire MP4 in memory. The blob fallback supports mobile browsers.
-    const picker = (globalThis as typeof globalThis & { showSaveFilePicker?: SavePicker }).showSaveFilePicker
-    const handle = picker ? await picker.call(globalThis, { suggestedName: videoFilename(f) }) : null
+    const picker = (
+      globalThis as typeof globalThis & { showSaveFilePicker?: SavePicker }
+    ).showSaveFilePicker
+    const handle = picker
+      ? await picker.call(globalThis, { suggestedName: videoFilename(f) })
+      : null
     const response = await fetch(videoUrl(f))
-    if (!response.ok) throw new Error(`Printer returned HTTP ${response.status}`)
+    if (!response.ok)
+      throw new Error(`Printer returned HTTP ${response.status}`)
 
     if (handle) {
-      if (!response.body) throw new Error('Printer did not provide a downloadable stream')
+      if (!response.body)
+        throw new Error('Printer did not provide a downloadable stream')
       await response.body.pipeTo(await handle.createWritable())
     } else {
       const objectUrl = globalThis.URL.createObjectURL(await response.blob())
@@ -63,7 +71,10 @@ async function downloadTimelapse(f: TimelapseFile) {
     toast.show(`${handle ? 'Saved' : 'Downloading'} ${videoFilename(f)}`)
   } catch (e) {
     if (!(e instanceof Error && e.name === 'AbortError')) {
-      banner.show('Failed to download timelapse', e instanceof Error ? e.message : undefined)
+      banner.show(
+        'Failed to download timelapse',
+        e instanceof Error ? e.message : undefined,
+      )
     }
   } finally {
     downloading.value = null
@@ -79,9 +90,13 @@ async function loadTimelapses(showFeedback: boolean) {
   refreshing.value = true
   try {
     await printerWs.refreshTimelapses()
-    if (showFeedback) toast.show(`Refreshed timelapses (${printer.timelapseFiles.length})`)
+    if (showFeedback)
+      toast.show(`Refreshed timelapses (${printer.timelapseFiles.length})`)
   } catch (e) {
-    banner.show('Failed to refresh timelapses', e instanceof Error ? e.message : undefined)
+    banner.show(
+      'Failed to refresh timelapses',
+      e instanceof Error ? e.message : undefined,
+    )
   } finally {
     refreshing.value = false
   }
@@ -94,9 +109,13 @@ function refresh() {
 // The panel normally mounts before the shared printer socket is ready.
 // Load on its first connection (and after reconnects) instead of requiring
 // the user to press Reload once the socket catches up.
-watch(printerWs.connected, (isConnected, wasConnected) => {
-  if (isConnected && !wasConnected) void loadTimelapses(false)
-}, { immediate: true })
+watch(
+  printerWs.connected,
+  (isConnected, wasConnected) => {
+    if (isConnected && !wasConnected) void loadTimelapses(false)
+  },
+  { immediate: true },
+)
 
 async function deleteTimelapse(f: TimelapseFile) {
   const confirmed = await requestConfirmation({
@@ -111,7 +130,10 @@ async function deleteTimelapse(f: TimelapseFile) {
     await printerWs.deleteTimelapse(f.video)
     toast.show(`Deleted ${displayName(f)}`)
   } catch (e) {
-    banner.show('Failed to delete timelapse', e instanceof Error ? e.message : undefined)
+    banner.show(
+      'Failed to delete timelapse',
+      e instanceof Error ? e.message : undefined,
+    )
   }
 }
 </script>
@@ -121,56 +143,121 @@ async function deleteTimelapse(f: TimelapseFile) {
     <div class="flex items-center justify-between">
       <div class="t-title">Timelapse</div>
       <div class="flex items-center gap-3">
-        <span v-if="hasFiles" class="t-mute font-mono">{{ printer.timelapseFiles.length }} videos</span>
-        <button class="btn btn-ghost btn-sm" @click="refresh" :disabled="refreshing" aria-label="Reload timelapses">
-          <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': refreshing }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <span v-if="hasFiles" class="t-mute font-mono"
+          >{{ printer.timelapseFiles.length }} videos</span
+        >
+        <button
+          class="btn btn-ghost btn-sm"
+          @click="refresh"
+          :disabled="refreshing"
+          aria-label="Reload timelapses"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            :class="{ 'animate-spin': refreshing }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
           </svg>
         </button>
       </div>
     </div>
 
-    <div v-if="hasFiles" class="-mx-7 lg:-mx-8">
+    <div v-if="hasFiles" class="panel-bleed">
       <ul class="divide-y divide-[var(--border)]">
-        <li v-for="f in printer.timelapseFiles" :key="f.video" class="px-7 lg:px-8 py-4 flex items-center gap-4 max-sm:flex-wrap list-row-hover group">
-          <svg class="w-8 h-8 text-[var(--text-mute)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        <li
+          v-for="f in printer.timelapseFiles"
+          :key="f.video"
+          class="panel-row py-4 flex items-center gap-4 max-sm:flex-wrap list-row-hover group"
+        >
+          <svg
+            class="w-8 h-8 text-[var(--text-mute)] shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
           </svg>
           <div class="flex-1 min-w-0">
-            <div class="row-title" :title="displayName(f)">{{ displayName(f) }}</div>
+            <div class="row-title" :title="displayName(f)">
+              {{ displayName(f) }}
+            </div>
             <div class="row-meta">
-              {{ fmtSize(f.size) }}<span v-if="f.starttime"> · {{ fmtDate(f.starttime) }}</span><span v-if="f.duration"> · {{ fmtDur(f.duration) }}</span>
+              {{ fmtSize(f.size)
+              }}<span v-if="f.starttime"> · {{ fmtDate(f.starttime) }}</span
+              ><span v-if="f.duration"> · {{ fmtDur(f.duration) }}</span>
             </div>
           </div>
           <div class="flex items-center gap-2 max-sm:w-full max-sm:flex-col">
-            <button class="btn btn-sm max-sm:w-full" @click="viewing = f">View</button>
+            <button class="btn btn-sm max-sm:w-full" @click="viewing = f">
+              View
+            </button>
             <button
               class="btn btn-sm max-sm:w-full"
               :disabled="downloading !== null"
               @click="downloadTimelapse(f)"
-            >{{ downloading === f.video ? 'Downloading…' : 'Download' }}</button>
-            <button class="btn btn-danger btn-sm max-sm:w-full" @click="deleteTimelapse(f)">Delete</button>
+            >
+              {{ downloading === f.video ? 'Downloading…' : 'Download' }}
+            </button>
+            <button
+              class="btn btn-danger btn-sm max-sm:w-full"
+              @click="deleteTimelapse(f)"
+            >
+              Delete
+            </button>
           </div>
         </li>
       </ul>
     </div>
 
     <div v-else class="py-4 text-center text-[var(--text-mute)] text-[13px]">
-      <span class="t-mute uppercase tracking-wider">No timelapse files found</span>
+      <span class="t-mute uppercase tracking-wider"
+        >No timelapse files found</span
+      >
     </div>
   </div>
 
   <Teleport to="body">
     <Transition name="timelapse-modal">
-      <div v-if="viewing" class="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-6">
-        <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" @click="viewing = null" />
-        <div class="relative z-10 w-full max-w-5xl overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
-          <div class="flex items-center gap-4 px-5 py-4 border-b border-[var(--border)]">
+      <div
+        v-if="viewing"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-6"
+      >
+        <div
+          class="absolute inset-0 bg-black/75 backdrop-blur-sm"
+          @click="viewing = null"
+        />
+        <div
+          class="relative z-10 w-full max-w-5xl overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
+        >
+          <div
+            class="flex items-center gap-4 px-5 py-4 border-b border-[var(--border)]"
+          >
             <div class="flex-1 min-w-0">
               <div class="t-title">Timelapse preview</div>
-              <div class="text-[12px] text-[var(--text-mute)] truncate mt-1">{{ displayName(viewing) }}</div>
+              <div class="text-[12px] text-[var(--text-mute)] truncate mt-1">
+                {{ displayName(viewing) }}
+              </div>
             </div>
-            <button class="btn btn-ghost btn-sm" aria-label="Close preview" @click="viewing = null">Close</button>
+            <button
+              class="btn btn-ghost btn-sm"
+              aria-label="Close preview"
+              @click="viewing = null"
+            >
+              Close
+            </button>
           </div>
           <div class="bg-black">
             <video
@@ -186,7 +273,6 @@ async function deleteTimelapse(f: TimelapseFile) {
         </div>
       </div>
     </Transition>
-
   </Teleport>
 </template>
 

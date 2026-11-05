@@ -5,6 +5,7 @@
   <p>A cleaner alternative to the embedded dashboard—no cloud account or desktop app required.</p>
 
   <p>
+    <img alt="Version 2.0.0" src="https://img.shields.io/badge/Version-2.0.0-38d76d?style=for-the-badge" />
     <img alt="Vue.js" src="https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D" />
     <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-1f2937?style=for-the-badge&logo=typescript&logoColor=3178C6" />
     <img alt="Vite" src="https://img.shields.io/badge/Vite-1f2937?style=for-the-badge&logo=vite&logoColor=646CFF" />
@@ -16,24 +17,44 @@
 > [!IMPORTANT]
 > K2Dash is an unofficial community project built by reverse engineering CrealityPrint's local printer protocol. It is not affiliated with or supported by Creality.
 
+Version 2.0 introduces a redesigned desktop and mobile workspace, explicit CFS print setup, and safe config-backup cleanup. See the [changelog](CHANGELOG.md) for the release notes.
+
 ## What it does
 
 - **Live print status** — progress, layers, ETA, elapsed time, temperatures, fans, filament use, filename, and thumbnail.
-- **CFS overview** — slots, spool holder, colors, materials, vendors, temperature ranges, humidity, and temperature.
+- **CFS materials** — physical slots and colors, material names, humidity, temperature, and explicit filament mapping before printing.
 - **Live camera** — WebRTC stream using the printer's native signaling service.
 - **Printer controls** — pause, resume, cancel, emergency stop, jog, homing, heaters, fans, and chamber light.
 - **Safe utilities** — filament load/unload, leveling, input shaping, belt and Z calibration, plus guarded PID calibration.
 - **File management** — upload, browse, rename, print, and delete G-code files.
-- **Configuration editor** — browse and edit printer config files with active-print safety locks.
-- **G-code console** — live responses, history, and WebSocket transport with Moonraker fallback.
-- **History and timelapses** — inspect and clean print history; list, download, and delete timelapse videos.
+- **Configuration editor** — browse and edit printer configs; group timestamped backups separately and clean up older snapshots while keeping the latest.
+- **G-code console** — live responses, history, and the native Creality WebSocket transport.
+- **History and timelapses** — inspect and clean print history; view recordings in a modal, download, or delete timelapse videos.
 - **Resilient connection** — automatic WebSocket reconnection and clear offline/reconnecting states.
 
 Potentially disruptive controls are disabled while a print is preparing, running, or paused. Maintenance operations also require confirmation where appropriate.
 
+## Workspace
+
+Overview prioritizes the current job and camera while printing, and recent files while idle. Temperatures, materials, lights, and fans remain easy to reach. The other tabs are Files, Controls, Activity, and Console; mobile reflows the same information instead of squeezing the desktop columns.
+
+### Starting a print
+
+Choose **Print** on a saved file to open setup. CFS is the safe default: review the file's used filaments and choose compatible physical slots. Unused slicer filaments are omitted when the printer explicitly reports zero usage. Missing requirements block CFS printing; they never silently select the external spool.
+
+Choose **External spool** deliberately when using the spool holder. Starting another job is blocked while a print is active or a start request is pending.
+
+### Cleaning up config backups
+
+Open **Config → Clean up old backups**. Timestamped `printer-YYYYMMDD_HHMMSS.cfg` snapshots are grouped in their own collapsible section.
+
+Cleanup keeps the newest snapshot and protects backups referenced by config includes. It shows the exact deletion list and requires typing `DELETE BACKUPS`. Before deleting, it refreshes the list, rechecks references, and skips changed or protected files. It stops if the printer disconnects, a job starts, or a deletion fails; partial results are reported.
+
+Cleanup is manual, never automatic after printing. It does not edit `printer.cfg`, run G-code, or restart the printer. Deleted backups cannot be restored through K2Dash.
+
 ## Quick start
 
-Requirements: a recent Node.js release, npm, and a K2 Plus reachable on the same LAN.
+Requirements: Node.js 24+ (or 22.13+ on the 22.x line), npm, and a K2 Plus reachable on the same LAN.
 
 ```bash
 git clone https://github.com/pdromnt/k2dash.git
@@ -124,6 +145,18 @@ K2Dash can be installed from a compatible browser using **Add to Home Screen** o
 
 Printer data and controls still require the printer to be reachable on the LAN; printer traffic is deliberately never cached.
 
+## Safe development previews
+
+With the dev server running, open `http://localhost:5173/?preview=idle`. Other isolated fixtures are `printing`, `paused`, `offline`, and `empty`. Preview mode blocks native commands, HTTP mutations, webcam signaling, and printer data requests. It is unavailable in production builds.
+
+Preview config files include timestamped backups and a protected include so cleanup discovery and confirmation can be inspected without touching printer storage. Deletion remains blocked in preview; automated tests cover successful cleanup, failures, and interrupted operations.
+
+### Validation limits
+
+CFS starts send native `colorMatch` followed by `multiColorPrint`, following CrealityPrint's protocol. Real native file metadata retrieval and compatible slot selection have been checked read-only on a K2 Plus. The command sequence has automated coverage; firmware acceptance and an actual CFS-started print still require a supervised hardware test.
+
+Moonraker remains an explicit dependency for the existing file management, configuration editor, and history extension. Native replacements for those capabilities are still under investigation. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
+
 ## Development commands
 
 | Command | Action |
@@ -131,19 +164,24 @@ Printer data and controls still require the printer to be reachable on the LAN; 
 | `npm run dev` | Start the Vite development server |
 | `npm test` | Run the Vitest suite |
 | `npm run build` | Type-check and build for production |
+| `npx eslint src/` | Lint application code |
 | `npm run preview` | Preview the production build locally |
 | `npm run deploy` | Test, validate, build, and atomically deploy to the printer |
 
 ## How it connects
 
-K2Dash prefers the same native services used by CrealityPrint:
+K2Dash uses native Creality services for telemetry and controls, following CrealityPrint’s connection model:
 
 - Creality WebSocket (`9999`) for real-time state and printer commands.
 - Creality WebRTC signaling (`8000`) for the camera.
 - Creality HTTP upload service (`80`) for G-code uploads.
-- Moonraker (`7125`) for files, history, configuration, and fallback operations.
+- Moonraker (`7125`) for files, history, configuration (explicit extension features, never a fallback for controls).
 
 Everything stays between your browser and printer on the local network.
+
+## Contributing
+
+Run tests, build, and lint before submitting changes. Use isolated previews for destructive flows; do not treat a passed unit test or a successful deployment as proof of printer behavior. [PRODUCT.md](PRODUCT.md) records product constraints and [DESIGN.md](DESIGN.md) records the visual system.
 
 ---
 

@@ -1,15 +1,47 @@
 <script setup lang="ts">
-import { ref, computed, reactive, h, defineComponent, nextTick, watch, onUnmounted, onMounted } from 'vue'
-import { getConfigFiles, getConfigFile, saveConfigFile, deleteConfigFile, restartKlipper } from '@/api/moonraker'
+import {
+  ref,
+  computed,
+  reactive,
+  h,
+  defineComponent,
+  nextTick,
+  watch,
+  onUnmounted,
+  onMounted,
+} from 'vue'
+import {
+  getConfigFiles,
+  getConfigFile,
+  saveConfigFile,
+  deleteConfigFile,
+  restartKlipper,
+} from '@/api/moonraker'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterStore } from '@/stores/printer'
 import { errMsg, fmtSize, splitPath } from '@/utils/format'
-import { confirmationDialog, requestConfirmation } from '@/composables/useConfirmDialog'
+import {
+  confirmationDialog,
+  requestConfirmation,
+} from '@/composables/useConfirmDialog'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
-import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import {
+  StreamLanguage,
+  syntaxHighlighting,
+  HighlightStyle,
+} from '@codemirror/language'
 import { tags } from '@lezer/highlight'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { usePrinterWs } from '@/composables/usePrinterWs'
+import {
+  cleanConfigBackups,
+  isPrinterConfigBackup,
+  planConfigBackupCleanup,
+  referencedConfigBackups,
+  type ConfigFileEntry,
+} from '@/utils/configBackups'
 
 const klipperConfig = StreamLanguage.define({
   token(stream) {
@@ -19,13 +51,13 @@ const klipperConfig = StreamLanguage.define({
     }
 
     if (stream.match('{%')) {
-      stream.eatWhile(c => c !== '%')
+      stream.eatWhile((c) => c !== '%')
       if (!stream.match('%}')) stream.skipToEnd()
       return 'typeName'
     }
 
     if (stream.match('{{')) {
-      stream.eatWhile(c => c !== '}')
+      stream.eatWhile((c) => c !== '}')
       if (!stream.match('}}')) stream.skipToEnd()
       return 'string'
     }
@@ -66,6 +98,7 @@ const klipperConfig = StreamLanguage.define({
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
+const { printStarting } = usePrinterWs()
 
 // One row in the file tree. Extracted so sub-entry (indented) and
 // root-level (full-width) files share markup. The only difference is
@@ -84,42 +117,77 @@ const FileRow = defineComponent({
   },
   setup(props) {
     return () =>
-      h('div', {
-        class: ['flex items-center group', props.selected ? 'bg-[var(--green)]/10' : ''],
-      }, [
-        h('button', {
-          class: ['flex-1 text-left py-2 text-[13px] group-hover:bg-white/[0.02] transition-colors min-w-0', props.padClass],
-          onClick: () => props.openFile(props.path),
-        }, [
-          h('div', { class: 'flex items-center gap-2' }, [
-            h('span', { class: 'text-[13px] leading-none shrink-0' }, '📄'),
-            h('span', { class: 'truncate font-medium' }, props.name),
-          ]),
-          h('div', { class: 't-mono text-[10px] mt-0.5 ml-[25px]' }, fmtSize(props.size)),
-        ]),
-        h('button', {
+      h(
+        'div',
+        {
           class: [
-            'shrink-0 flex items-center gap-1.5 mx-2 px-3 py-2 rounded-md border text-[12px] font-medium transition-all',
-            props.deleteDisabled
-              ? 'border-transparent text-[var(--text-mute)] opacity-35 cursor-not-allowed'
-              : 'border-transparent text-[var(--text-mute)] hover:text-[var(--red)] hover:border-[rgba(224,85,85,0.35)] hover:bg-[rgba(224,85,85,0.1)]',
+            'flex items-center group',
+            props.selected ? 'bg-[var(--green)]/10' : '',
           ],
-          disabled: props.deleteDisabled,
-          onClick: () => { if (!props.deleteDisabled) props.deleteFile(props.path) },
-          'aria-label': `Delete ${props.name}`,
-          title: props.deleteDisabled ? "Can't delete config files while printing" : `Delete ${props.name}`,
-        }, [
-          h('svg', {
-            class: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24', 'stroke-width': '1.75',
-          }, [
-            h('path', {
-              'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-              d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
-            }),
-          ]),
-          h('span', 'Delete'),
-        ]),
-      ])
+        },
+        [
+          h(
+            'button',
+            {
+              class: [
+                'flex-1 text-left py-2 text-[13px] group-hover:bg-white/[0.02] transition-colors min-w-0',
+                props.padClass,
+              ],
+              onClick: () => props.openFile(props.path),
+            },
+            [
+              h('div', { class: 'flex items-center gap-2' }, [
+                h(AppIcon, { name: 'file', size: 16 }),
+                h('span', { class: 'truncate font-medium' }, props.name),
+              ]),
+              h(
+                'div',
+                { class: 't-mono text-[10px] mt-0.5 ml-[25px]' },
+                fmtSize(props.size),
+              ),
+            ],
+          ),
+          h(
+            'button',
+            {
+              class: [
+                'shrink-0 flex items-center gap-1.5 mx-2 px-3 py-2 rounded-md border text-[12px] font-medium transition-all',
+                props.deleteDisabled
+                  ? 'border-transparent text-[var(--text-mute)] opacity-35 cursor-not-allowed'
+                  : 'border-transparent text-[var(--text-mute)] hover:text-[var(--red)] hover:border-[rgba(224,85,85,0.35)] hover:bg-[rgba(224,85,85,0.1)]',
+              ],
+              disabled: props.deleteDisabled,
+              onClick: () => {
+                if (!props.deleteDisabled) props.deleteFile(props.path)
+              },
+              'aria-label': `Delete ${props.name}`,
+              title: props.deleteDisabled
+                ? 'Config changes are locked while busy or disconnected'
+                : `Delete ${props.name}`,
+            },
+            [
+              h(
+                'svg',
+                {
+                  class: 'w-4 h-4',
+                  fill: 'none',
+                  stroke: 'currentColor',
+                  viewBox: '0 0 24 24',
+                  'stroke-width': '1.75',
+                },
+                [
+                  h('path', {
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round',
+                    d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+                  }),
+                ],
+              ),
+              h('span', 'Delete'),
+            ],
+          ),
+        ],
+      )
   },
 })
 
@@ -140,6 +208,23 @@ const saving = ref(false)
 const changed = ref(false)
 const newFileName = ref('')
 const collapsed = ref<Set<string>>(new Set())
+const rawFiles = ref<ConfigFileEntry[]>([])
+const backups = computed(() => planConfigBackupCleanup(rawFiles.value))
+const showBackups = ref(false)
+const cleaning = ref(false)
+const cleanedCount = ref(0)
+const cleanupStatus = ref('')
+const mutationsBlocked = computed(
+  () =>
+    jobActive.value ||
+    !printer.connected ||
+    printStarting.value ||
+    cleaning.value ||
+    saving.value,
+)
+function cleanupAllowed() {
+  return printer.connected && !jobActive.value && !printStarting.value
+}
 
 const editorHost = ref<HTMLDivElement>()
 let editorView: EditorView | null = null
@@ -163,7 +248,9 @@ function showTip(btn: HTMLButtonElement | undefined, text: string) {
   tip.y = r.bottom + 8
   tip.visible = true
 }
-function hideTip() { tip.visible = false }
+function hideTip() {
+  tip.visible = false
+}
 const SAVE_TIP = "Can't save while printing"
 const RESTART_TIP = "Can't restart while printing"
 const showSaveTip = () => showTip(saveBtn.value, SAVE_TIP)
@@ -179,7 +266,9 @@ interface TreeEntry {
 
 const tree = ref<TreeEntry[]>([])
 
-function buildTree(rawFiles: Array<{ path: string; size: number; modified: number }>): TreeEntry[] {
+function buildTree(
+  rawFiles: Array<{ path: string; size: number; modified: number }>,
+): TreeEntry[] {
   const root: TreeEntry[] = []
   for (const f of rawFiles) {
     const parts = f.path.split('/')
@@ -187,7 +276,7 @@ function buildTree(rawFiles: Array<{ path: string; size: number; modified: numbe
     for (let i = 0; i < parts.length; i++) {
       const isLast = i === parts.length - 1
       const name = parts[i]
-      let existing = level.find(e => e.name === name && e.isDir === !isLast)
+      let existing = level.find((e) => e.name === name && e.isDir === !isLast)
       if (!existing) {
         existing = {
           name,
@@ -209,6 +298,7 @@ function buildTree(rawFiles: Array<{ path: string; size: number; modified: numbe
 }
 
 function toggle() {
+  if (cleaning.value) return
   if (show.value) {
     show.value = false
     return
@@ -228,8 +318,9 @@ async function confirmDiscardChanges() {
 }
 
 async function close() {
+  if (cleaning.value) return
   if (view.value === 'editor' && changed.value) {
-    if (!await confirmDiscardChanges()) return
+    if (!(await confirmDiscardChanges())) return
   }
   show.value = false
 }
@@ -238,8 +329,13 @@ async function loadFiles() {
   loading.value = true
   try {
     const raw = await getConfigFiles()
-    tree.value = buildTree(raw)
-    collapsed.value = new Set(tree.value.filter(e => e.isDir).map(e => e.path))
+    rawFiles.value = raw
+    tree.value = buildTree(
+      raw.filter((file) => !isPrinterConfigBackup(file.path)),
+    )
+    collapsed.value = new Set(
+      tree.value.filter((e) => e.isDir).map((e) => e.path),
+    )
   } catch (e) {
     banner.show('Failed to load config files', errMsg(e))
   }
@@ -255,27 +351,47 @@ function createEditor(doc: string) {
       extensions: [
         basicSetup,
         klipperConfig,
-        syntaxHighlighting(HighlightStyle.define([
-          { tag: tags.comment, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' },
-          { tag: tags.keyword, color: 'var(--green)', fontWeight: '600' },
-          { tag: tags.variableName, color: 'rgba(255,255,255,0.45)' },
-          { tag: tags.number, color: 'var(--blue)' },
-          { tag: tags.string, color: 'rgba(139,175,52,0.65)' },
-          { tag: tags.typeName, color: 'var(--amber)' },
-          { tag: tags.atom, color: '#c586c0' },
-        ])),
+        syntaxHighlighting(
+          HighlightStyle.define([
+            {
+              tag: tags.comment,
+              color: 'rgba(255,255,255,0.25)',
+              fontStyle: 'italic',
+            },
+            { tag: tags.keyword, color: 'var(--green)', fontWeight: '600' },
+            { tag: tags.variableName, color: 'rgba(255,255,255,0.45)' },
+            { tag: tags.number, color: 'var(--blue)' },
+            { tag: tags.string, color: 'rgba(139,175,52,0.65)' },
+            { tag: tags.typeName, color: 'var(--amber)' },
+            { tag: tags.atom, color: '#c586c0' },
+          ]),
+        ),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) changed.value = true
         }),
         EditorView.theme({
           '&': { height: '100%', backgroundColor: 'var(--bg-terminal)' },
-          '.cm-scroller': { fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, monospace', fontSize: '13px', lineHeight: '1.8' },
-          '.cm-gutters': { backgroundColor: '#0c0d10', borderRight: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)' },
+          '.cm-scroller': {
+            fontFamily:
+              '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
+            fontSize: '13px',
+            lineHeight: '1.8',
+          },
+          '.cm-gutters': {
+            backgroundColor: '#0c0d10',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.2)',
+          },
           '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.02)' },
           '.cm-activeLine': { backgroundColor: 'rgba(139,175,52,0.04)' },
           '.cm-cursor': { borderLeftColor: 'var(--green)' },
-          '.cm-selectionBackground': { backgroundColor: 'rgba(139,175,52,0.2) !important' },
-          '.cm-matchingBracket': { backgroundColor: 'rgba(139,175,52,0.12)', outline: '1px solid rgba(139,175,52,0.3)' },
+          '.cm-selectionBackground': {
+            backgroundColor: 'rgba(139,175,52,0.2) !important',
+          },
+          '.cm-matchingBracket': {
+            backgroundColor: 'rgba(139,175,52,0.12)',
+            outline: '1px solid rgba(139,175,52,0.3)',
+          },
           '.cm-line': { padding: '0 4px' },
         }),
       ],
@@ -285,10 +401,14 @@ function createEditor(doc: string) {
 }
 
 function destroyEditor() {
-  if (editorView) { editorView.destroy(); editorView = null }
+  if (editorView) {
+    editorView.destroy()
+    editorView = null
+  }
 }
 
 async function openFile(p: string) {
+  if (cleaning.value) return
   selected.value = p
   changed.value = false
   newFileName.value = ''
@@ -296,6 +416,7 @@ async function openFile(p: string) {
 }
 
 function startNewFile() {
+  if (mutationsBlocked.value) return
   selected.value = ''
   changed.value = false
   newFileName.value = ''
@@ -326,7 +447,7 @@ watch(view, async (v) => {
 // Back from the editor → list. Confirm if there are unsaved changes.
 async function cancel() {
   if (changed.value) {
-    if (!await confirmDiscardChanges()) return
+    if (!(await confirmDiscardChanges())) return
   }
   destroyEditor()
   selected.value = ''
@@ -384,7 +505,7 @@ async function saveFile(): Promise<boolean> {
 }
 
 async function delFile(p: string) {
-  if (jobActive.value) return
+  if (mutationsBlocked.value) return
   const filename = splitPath(p)
   const confirmed = await requestConfirmation({
     title: 'Delete config file?',
@@ -394,7 +515,7 @@ async function delFile(p: string) {
     tone: 'danger',
     requiredText: filename,
   })
-  if (!confirmed || jobActive.value) return
+  if (!confirmed || mutationsBlocked.value) return
   try {
     await deleteConfigFile(p)
     toast.show(`Deleted ${p}`)
@@ -411,9 +532,61 @@ async function delFile(p: string) {
   }
 }
 
+async function cleanupBackups() {
+  if (mutationsBlocked.value || loading.value) return
+  cleaning.value = true
+  cleanedCount.value = 0
+  cleanupStatus.value = 'Checking backup files…'
+  try {
+    const files = await getConfigFiles()
+    const protectedPaths = await referencedConfigBackups(files, getConfigFile)
+    const plan = planConfigBackupCleanup(files, protectedPaths)
+    if (!plan.removable.length) {
+      cleanupStatus.value = 'No older, unreferenced backups to delete.'
+      return
+    }
+    const count = plan.removable.length
+    const confirmed = await requestConfirmation({
+      title: `Delete ${count} old config backup${count === 1 ? '' : 's'}?`,
+      message:
+        'Keeps the newest backup and any referenced by config includes. Active configuration files are not part of this cleanup. Deletion cannot be undone.',
+      subject: plan.removable.map((file) => file.path).join('\n'),
+      confirmLabel: `Delete ${count} backup${count === 1 ? '' : 's'}`,
+      tone: 'danger',
+      requiredText: 'DELETE BACKUPS',
+    })
+    if (!confirmed) {
+      cleanupStatus.value = ''
+      return
+    }
+    cleanupStatus.value = `Deleting 0 of ${count} backups…`
+    const result = await cleanConfigBackups(plan.removable, {
+      list: getConfigFiles,
+      read: getConfigFile,
+      remove: deleteConfigFile,
+      allowed: cleanupAllowed,
+      progress: (n) => {
+        cleanedCount.value = n
+        cleanupStatus.value = `Deleting ${n} of ${count} backups…`
+      },
+    })
+    cleanupStatus.value = `Deleted ${result.deleted.length} backup${result.deleted.length === 1 ? '' : 's'}.${result.skipped ? ` Skipped ${result.skipped} changed or protected files.` : ''}${result.stopped ? ` ${result.stopped}` : ''}`
+    if (result.stopped)
+      banner.show('Backup cleanup stopped', cleanupStatus.value)
+    else toast.show(cleanupStatus.value)
+  } catch (error) {
+    cleanupStatus.value = `Cleanup stopped after deleting ${cleanedCount.value} backups. ${errMsg(error)}`
+    banner.show('Could not clean up backups', cleanupStatus.value)
+  } finally {
+    await loadFiles()
+    cleaning.value = false
+  }
+}
+
 function toggleCollapse(p: string) {
   const s = collapsed.value
-  if (s.has(p)) s.delete(p); else s.add(p)
+  if (s.has(p)) s.delete(p)
+  else s.add(p)
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -428,32 +601,109 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button class="btn btn-ghost btn-sm" @click="toggle">Config</button>
+  <button class="btn btn-ghost btn-sm" :disabled="cleaning" @click="toggle">
+    Config
+  </button>
 
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-6 modal-container">
+      <div
+        v-if="show"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-6 modal-container"
+      >
         <!-- Backdrop: only dismisses from the file list, never while editing -->
-        <div v-if="view === 'list'" class="absolute inset-0 bg-black/70 backdrop-blur-sm modal-backdrop" @click="close"></div>
-        <div v-else class="absolute inset-0 bg-black/70 modal-backdrop" aria-hidden="true"></div>
+        <div
+          v-if="view === 'list'"
+          class="absolute inset-0 bg-black/70 backdrop-blur-sm modal-backdrop"
+          @click="close"
+        ></div>
+        <div
+          v-else
+          class="absolute inset-0 bg-black/70 modal-backdrop"
+          aria-hidden="true"
+        ></div>
 
         <Transition name="view">
           <!-- ── List view ── -->
-          <div v-if="view === 'list'" key="list" class="relative flex flex-col w-full max-w-3xl h-[90vh] rounded-2xl card shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] shrink-0">
+          <div
+            v-if="view === 'list'"
+            key="list"
+            class="relative flex flex-col w-full max-w-3xl h-[90vh] rounded-2xl card shadow-2xl overflow-hidden"
+          >
+            <div
+              class="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] shrink-0"
+            >
               <div class="flex items-center gap-3">
                 <div class="t-title">Config files</div>
-                <span v-if="!loading && tree.length > 0" class="t-mute font-mono">{{ tree.length }} entries</span>
+                <span
+                  v-if="!loading && tree.length > 0"
+                  class="t-mute font-mono"
+                  >{{ tree.length }} entries</span
+                >
               </div>
               <div class="flex items-center gap-1">
-                <button class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]" @click="loadFiles" :disabled="loading" aria-label="Reload" title="Reload">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                <button
+                  class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]"
+                  @click="loadFiles"
+                  :disabled="loading || cleaning"
+                  aria-label="Reload"
+                  title="Reload"
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
                 </button>
-                <button class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]" @click="startNewFile" aria-label="New file" title="New file">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                <button
+                  class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]"
+                  :disabled="mutationsBlocked"
+                  @click="startNewFile"
+                  aria-label="New file"
+                  title="New file"
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
                 </button>
-                <button class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]" @click="close" aria-label="Close" title="Close">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                <button
+                  class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]"
+                  :disabled="cleaning"
+                  @click="close"
+                  aria-label="Close"
+                  title="Close"
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -466,9 +716,16 @@ onUnmounted(() => {
               <template v-else>
                 <template v-for="entry in tree" :key="entry.path">
                   <template v-if="entry.isDir">
-                    <button class="w-full flex items-center gap-2 px-5 py-2 text-[13px] font-medium text-[var(--text-dim)] hover:bg-white/[0.02] transition-colors" @click="toggleCollapse(entry.path)">
-                      <span class="text-[11px] w-4">{{ collapsed.has(entry.path) ? '▸' : '▾' }}</span>
-                      <span class="text-[14px] leading-none">📂</span>
+                    <button
+                      class="w-full flex items-center gap-2 px-5 py-2 text-[13px] font-medium text-[var(--text-dim)] hover:bg-white/[0.02] transition-colors"
+                      @click="toggleCollapse(entry.path)"
+                    >
+                      <AppIcon
+                        name="arrow"
+                        :size="14"
+                        :class="{ 'rotate-90': !collapsed.has(entry.path) }"
+                      />
+                      <AppIcon name="files" :size="16" />
                       <span class="truncate">{{ entry.name }}</span>
                     </button>
                     <template v-if="!collapsed.has(entry.path)">
@@ -479,7 +736,7 @@ onUnmounted(() => {
                         :name="sub.name"
                         :size="sub.size"
                         :selected="selected === sub.path"
-                        :delete-disabled="jobActive"
+                        :delete-disabled="mutationsBlocked"
                         pad-class="pl-12 pr-3"
                         :open-file="openFile"
                         :delete-file="delFile"
@@ -493,33 +750,137 @@ onUnmounted(() => {
                     :name="entry.name"
                     :size="entry.size"
                     :selected="selected === entry.path"
-                    :delete-disabled="jobActive"
+                    :delete-disabled="mutationsBlocked"
                     pad-class="px-5"
                     :open-file="openFile"
                     :delete-file="delFile"
                   />
                 </template>
+                <section
+                  v-if="backups.backups.length"
+                  class="config-backups"
+                  aria-labelledby="config-backups-title"
+                >
+                  <div class="section-heading">
+                    <h2 id="config-backups-title">
+                      Config backups
+                      <span class="count-label">{{
+                        backups.backups.length
+                      }}</span>
+                    </h2>
+                    <span class="unit-label">{{
+                      fmtSize(
+                        backups.backups.reduce(
+                          (sum, file) => sum + file.size,
+                          0,
+                        ),
+                      )
+                    }}</span>
+                  </div>
+                  <p>
+                    Timestamped snapshots, grouped out of your way. Cleanup
+                    keeps the newest backup and protects files referenced by
+                    config includes.
+                  </p>
+                  <div class="backup-actions">
+                    <button
+                      class="btn btn-sm"
+                      :aria-expanded="showBackups"
+                      aria-controls="config-backup-list"
+                      @click="showBackups = !showBackups"
+                    >
+                      {{ showBackups ? 'Hide backups' : 'Show backups' }}
+                    </button>
+                    <button
+                      class="btn btn-sm btn-danger"
+                      :disabled="mutationsBlocked || !backups.removable.length"
+                      @click="cleanupBackups"
+                    >
+                      <AppIcon name="trash" :size="15" />{{
+                        cleaning ? 'Cleaning…' : 'Clean up old backups'
+                      }}
+                    </button>
+                  </div>
+                  <p v-if="jobActive || printStarting" class="backup-lock">
+                    Locked while printing
+                  </p>
+                  <p v-else-if="!printer.connected" class="backup-lock">
+                    Printer disconnected
+                  </p>
+                  <div
+                    v-show="showBackups"
+                    id="config-backup-list"
+                    class="backup-file-list"
+                  >
+                    <FileRow
+                      v-for="file in backups.backups"
+                      :key="file.path"
+                      :path="file.path"
+                      :name="file.path"
+                      :size="file.size"
+                      :selected="selected === file.path"
+                      :delete-disabled="mutationsBlocked"
+                      pad-class="px-0"
+                      :open-file="openFile"
+                      :delete-file="delFile"
+                    />
+                  </div>
+                </section>
+                <p v-if="cleanupStatus" class="backup-status" role="status">
+                  {{ cleanupStatus }}
+                </p>
               </template>
             </div>
           </div>
 
           <!-- ── Editor view ── -->
-          <div v-else key="editor" class="relative flex flex-col w-full max-w-6xl h-[90vh] rounded-2xl card shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between shrink-0 px-4 py-3 border-b border-[var(--border)] gap-4">
+          <div
+            v-else
+            key="editor"
+            class="relative flex flex-col w-full max-w-6xl h-[90vh] rounded-2xl card shadow-2xl overflow-hidden"
+          >
+            <div
+              class="flex items-center justify-between shrink-0 px-4 py-3 border-b border-[var(--border)] gap-4"
+            >
               <div class="flex items-center gap-3 min-w-0">
-                <button class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]" @click="cancel" aria-label="Back to files" title="Back">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                <button
+                  class="btn btn-ghost btn-sm !h-7 !px-2 text-[12px]"
+                  @click="cancel"
+                  aria-label="Back to files"
+                  title="Back"
+                >
+                  <svg
+                    class="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
                 </button>
-                <div v-if="selected" class="text-[14px] font-medium truncate">{{ selected }}</div>
+                <div v-if="selected" class="text-[14px] font-medium truncate">
+                  {{ selected }}
+                </div>
                 <div v-else class="flex items-center gap-2 min-w-0">
-                  <span class="text-[14px] text-[var(--text-mute)] shrink-0">New file</span>
+                  <span class="text-[14px] text-[var(--text-mute)] shrink-0"
+                    >New file</span
+                  >
                   <input
                     v-model="newFileName"
                     class="input !h-7 text-[12px] w-40"
                     placeholder="filename.cfg"
                   />
                 </div>
-                <span v-if="changed" class="text-[11px] text-[var(--amber)] uppercase tracking-wider shrink-0">Unsaved</span>
+                <span
+                  v-if="changed"
+                  class="text-[11px] text-[var(--amber)] uppercase tracking-wider shrink-0"
+                  >Unsaved</span
+                >
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button class="btn btn-sm" @click="cancel">Cancel</button>
@@ -531,19 +892,31 @@ onUnmounted(() => {
                   @mouseenter="showRestartTip"
                   @mouseleave="hideTip"
                   @click="saveAndRestart"
-                >Save + Restart</button>
+                >
+                  Save + Restart
+                </button>
                 <button
                   ref="saveBtn"
                   class="btn btn-primary btn-sm"
-                  :disabled="!changed || saving || (!selected && !newFileName) || jobActive"
+                  :disabled="
+                    !changed ||
+                    saving ||
+                    (!selected && !newFileName) ||
+                    jobActive
+                  "
                   @mouseenter="showSaveTip"
                   @mouseleave="hideTip"
                   @click="save"
-                >{{ saving ? 'Saving…' : 'Save' }}</button>
+                >
+                  {{ saving ? 'Saving…' : 'Save' }}
+                </button>
               </div>
             </div>
 
-            <div ref="editorHost" class="flex-1 overflow-hidden term-panel"></div>
+            <div
+              ref="editorHost"
+              class="flex-1 overflow-hidden term-panel"
+            ></div>
           </div>
         </Transition>
       </div>
@@ -558,19 +931,62 @@ onUnmounted(() => {
       <div
         v-if="tip.visible && tip.text"
         class="fixed z-[100] px-3 py-1.5 rounded-lg term-panel text-[12px] font-medium leading-snug whitespace-nowrap shadow-xl pointer-events-none"
-        :style="{ top: `${tip.y}px`, left: `${tip.x}px`, transform: 'translateX(-50%)' }"
+        :style="{
+          top: `${tip.y}px`,
+          left: `${tip.x}px`,
+          transform: 'translateX(-50%)',
+        }"
         role="tooltip"
-      >{{ tip.text }}</div>
+      >
+        {{ tip.text }}
+      </div>
     </Transition>
   </Teleport>
 </template>
 
 <style scoped>
+.config-backups {
+  margin: 12px 20px 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.config-backups > p,
+.backup-status {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 10px;
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.config-backups .backup-lock {
+  color: var(--amber);
+}
+.backup-file-list {
+  margin-top: 14px;
+}
+.backup-status {
+  margin: 0 20px 20px;
+}
+@media (max-width: 480px) {
+  .backup-actions {
+    flex-direction: column;
+  }
+  .backup-actions .btn {
+    min-height: 40px;
+  }
+}
 /* Modal: fade the whole overlay in/out. */
-.modal-enter-active, .modal-leave-active {
+.modal-enter-active,
+.modal-leave-active {
   transition: opacity 0.2s ease;
 }
-.modal-enter-from, .modal-leave-to {
+.modal-enter-from,
+.modal-leave-to {
   opacity: 0;
 }
 .modal-enter-active .modal-backdrop,
@@ -585,13 +1001,17 @@ onUnmounted(() => {
 /* View swap: slide the outgoing view left, the incoming view from the
    right. Both views are in the DOM during the transition; the new
    view sits on top so the slide reads as a horizontal page turn. */
-.view-enter-active, .view-leave-active {
-  transition: transform 0.2s ease, opacity 0.2s ease;
+.view-enter-active,
+.view-leave-active {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 .view-leave-active {
   /* Outgoing view is absolute-positioned during its leave so the incoming
      view can sit on top of the same slot. */
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
 }
 .view-leave-to {
   transform: translateX(-24px);
@@ -603,10 +1023,12 @@ onUnmounted(() => {
 }
 
 /* Tip: subtle fade so the tooltip doesn't pop in. */
-.tip-enter-active, .tip-leave-active {
+.tip-enter-active,
+.tip-leave-active {
   transition: opacity 0.12s ease;
 }
-.tip-enter-from, .tip-leave-to {
+.tip-enter-from,
+.tip-leave-to {
   opacity: 0;
 }
 </style>

@@ -25,3 +25,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local design previews and review evidence; retain shared design context.
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/questions/
+.impeccable/live/
+.impeccable/dashboard-direction.md
