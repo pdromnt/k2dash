@@ -1,3 +1,5 @@
+import type { CfsSlot } from './cfs'
+
 export interface PrintFilament {
   id: string
   type: string
@@ -79,5 +81,27 @@ export function validateMaterialMapping(mappings: MaterialMapping[]) {
       throw new Error('Invalid CFS filament mapping')
     }
     ids.add(m.id)
+  }
+}
+
+export function validateConnectedCfsMappings(
+  mappings: MaterialMapping[],
+  slots: readonly CfsSlot[],
+) {
+  validateMaterialMapping(mappings)
+  for (const mapping of mappings) {
+    if (
+      !slots.some(
+        (slot) =>
+          !slot.isSpool &&
+          slot.boxId === mapping.boxId &&
+          slot.materialId === mapping.materialId &&
+          slot.type.trim().toUpperCase() === mapping.type.trim().toUpperCase(),
+      )
+    ) {
+      throw new Error(
+        'A mapped CFS slot is no longer available. Review the filament mapping.',
+      )
+    }
   }
 }

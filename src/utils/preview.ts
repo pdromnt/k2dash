@@ -10,7 +10,45 @@ export const isPreview = [
   'paused',
   'offline',
   'empty',
+  'multi-cfs',
+  'spool-only',
+  'empty-cfs',
 ].includes(previewState)
+
+export function previewMaterials(): Record<string, unknown> {
+  if (previewState === 'empty' || previewState === 'offline')
+    return { materialBoxs: [] }
+  const unit = (id: number, humidity: number, temp: number, empty = false) => ({
+    id,
+    type: 0,
+    state: 0,
+    humidity,
+    temp,
+    materials: ['#b8c4b4', '#e8b879', '#383c3b', ''].map((color, index) => ({
+      id: index,
+      color: empty ? '' : color,
+      type: !empty && color ? 'PETG' : '',
+      name: 'Hyper PETG',
+      vendor: 'Creality',
+      percent: 70,
+      minTemp: 220,
+      maxTemp: 250,
+      state: 0,
+    })),
+  })
+  const boxes: Array<Record<string, unknown>> =
+    previewState === 'spool-only'
+      ? []
+      : [unit(1, 28, 26, previewState === 'empty-cfs')]
+  if (previewState === 'multi-cfs') boxes.push(unit(3, 42, 31))
+  boxes.push({
+    id: 0,
+    type: 1,
+    state: 0,
+    materials: [{ id: 0, type: 'PLA', color: '#eeeeee', name: 'Generic PLA' }],
+  })
+  return { materialBoxs: boxes }
+}
 
 export function previewResponse(path: string): unknown {
   if (path.includes('root=config'))

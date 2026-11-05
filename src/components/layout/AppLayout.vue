@@ -86,7 +86,16 @@ function previewUrl(state: string) {
       ><span>Sample data. Printer actions disabled.</span>
       <div>
         <a
-          v-for="state in ['idle', 'printing', 'paused', 'offline', 'empty']"
+          v-for="state in [
+            'idle',
+            'printing',
+            'paused',
+            'offline',
+            'empty',
+            'multi-cfs',
+            'spool-only',
+            'empty-cfs',
+          ]"
           :key="state"
           :href="previewUrl(state)"
           :aria-current="previewState === state ? 'page' : undefined"

@@ -25,6 +25,7 @@ Desktop and mobile use. The same interface must work while idle, preparing, prin
 - Never abbreviate CrealityPrint.
 - Do not silently switch native printer commands or telemetry to Moonraker. Existing Moonraker file/history/configuration features remain explicit dependencies while native equivalents are investigated.
 - CFS requires an explicit filament mapping. Missing metadata must not be guessed or silently changed to external spool printing.
+- CFS visibility follows the current native unit list and global connection state, not filament occupancy. Preserve hardware IDs, independent sensor readings, and a separate external-spool presentation. Removed units must not remain available as print destinations.
 - Jogging, heater changes, maintenance, and disruptive file/configuration operations stay locked during active jobs.
 - Config-backup cleanup is explicit and confirmed. Keep only the newest timestamped root printer backup, protect referenced configs, and stop on busy/offline state or deletion errors. Never clean up automatically after a print.
 - Preview data must be visibly identified and isolated from printer traffic.

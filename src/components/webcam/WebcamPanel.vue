@@ -36,10 +36,12 @@ watch(() => printer.connected, autoConnect)
         <span v-if="connected" class="connection-state"
           ><span class="status-dot bg-current" />Streaming</span
         ><button
-          class="btn btn-ghost btn-sm"
+          class="btn"
+          :class="{ 'btn-ghost btn-sm': expanded }"
           :aria-expanded="expanded"
           @click="toggle"
         >
+          <AppIcon v-if="!expanded" name="play" :size="15" />
           {{ expanded ? 'Collapse' : 'Open camera' }}
         </button>
       </div>

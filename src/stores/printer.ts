@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import type { CfsSlot, CfsUnit } from '@/printer/cfs'
+export type { CfsSlot, CfsUnit } from '@/printer/cfs'
 
 export type PrinterState =
   | 'unknown'
@@ -12,20 +14,6 @@ export type PrinterState =
   | 'error'
   | 'cancelled'
   | 'shutdown'
-
-export interface CfsSlot {
-  boxId: number
-  materialId: number
-  type: string
-  color: string
-  name: string
-  vendor: string
-  percent: number
-  minTemp: number
-  maxTemp: number
-  state: number
-  isSpool: boolean
-}
 
 /**
  * Shape of an entry in the K2 Plus `elapseVideoList` WS payload
@@ -79,10 +67,24 @@ export const usePrinterStore = defineStore('printer', () => {
   const printLeftTime = ref(0)
   const thumbnailUrl = ref('')
   const wsActive = ref(false)
-  const cfsName = ref('')
-  const cfsHumidity = ref<number | null>(null)
-  const cfsTemp = ref<number | null>(null)
-  const cfsSlots = ref<CfsSlot[]>([])
+  const cfsConnected = ref<boolean | null>(null)
+  const cfsUnits = ref<CfsUnit[]>([])
+  const spoolSlots = ref<CfsSlot[]>([])
+  const cfsSlots = computed(() =>
+    !connected.value
+      ? []
+      : [
+          ...(cfsConnected.value === false
+            ? []
+            : cfsUnits.value.flatMap((unit) => unit.slots)),
+          ...spoolSlots.value,
+        ],
+  )
+  function clearMaterials() {
+    cfsConnected.value = null
+    cfsUnits.value = []
+    spoolSlots.value = []
+  }
   const timelapseFiles = ref<TimelapseFile[]>([])
   const position = ref({ x: 0, y: 0, z: 0 })
   const filamentUsed = ref(0)
@@ -136,9 +138,10 @@ export const usePrinterStore = defineStore('printer', () => {
     filamentEstimatedWeight,
     printLeftTime,
     thumbnailUrl,
-    cfsName,
-    cfsHumidity,
-    cfsTemp,
+    cfsConnected,
+    cfsUnits,
+    spoolSlots,
+    clearMaterials,
     cfsSlots,
     timelapseFiles,
     errorCode,

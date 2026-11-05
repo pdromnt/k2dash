@@ -27,6 +27,14 @@ const filaments = ref<PrintFilament[]>([]),
 const slots = computed(() =>
   printer.cfsSlots.filter((s) => !s.isSpool && s.type),
 )
+const slotGroups = computed(() =>
+  printer.cfsUnits
+    .map((unit) => ({
+      id: unit.id,
+      slots: slots.value.filter((slot) => slot.boxId === unit.id),
+    }))
+    .filter((unit) => unit.slots.length),
+)
 const jobActive = computed(() => printer.isPrinting || printer.isPaused)
 const ready = computed(
   () =>
@@ -150,6 +158,10 @@ onMounted(() => {
         >
       </fieldset>
       <div v-if="source === 'cfs'" class="mapping-list">
+        <p v-if="!loading && !printer.cfsUnits.length" class="inline-notice">
+          No connected CFS units reported. Reconnect a CFS or choose External
+          spool.
+        </p>
         <p v-if="loading" class="section-description">
           <span class="spinner spinner-sm" /> Reading the file’s material
           requirements…
@@ -177,15 +189,21 @@ onMounted(() => {
             :aria-label="'CFS slot for ' + f.id"
           >
             <option :value="undefined">Choose slot…</option>
-            <option
-              v-for="s in slots"
-              :key="s.boxId + ':' + s.materialId"
-              :value="s.boxId + ':' + s.materialId"
-              :disabled="s.type.toUpperCase() !== f.type.toUpperCase()"
+            <optgroup
+              v-for="unit in slotGroups"
+              :key="unit.id"
+              :label="'CFS ' + unit.id"
             >
-              {{ s.boxId + String.fromCharCode(65 + s.materialId) }} ·
-              {{ s.type }} {{ s.name }}
-            </option>
+              <option
+                v-for="s in unit.slots"
+                :key="s.boxId + ':' + s.materialId"
+                :value="s.boxId + ':' + s.materialId"
+                :disabled="s.type.toUpperCase() !== f.type.toUpperCase()"
+              >
+                {{ s.boxId + String.fromCharCode(65 + s.materialId) }} ·
+                {{ s.type }} {{ s.name }}
+              </option>
+            </optgroup>
           </select></label
         >
       </div>

@@ -83,6 +83,13 @@ describe('native printer transport', () => {
     const socket = FakeSocket.instance
     socket.readyState = 1
     socket.fire('open')
+    socket.fire('message', {
+      boxsInfo: {
+        materialBoxs: [
+          { id: 1, type: 0, materials: [{ id: 2, type: 'PETG' }] },
+        ],
+      },
+    })
     socket.sent = []
     await ws.startPrint('widget.gcode', {
       source: 'cfs',
@@ -128,5 +135,119 @@ describe('native printer transport', () => {
     expect(store.printFilename).toBe('widget.gcode')
     expect(store.currentLayer).toBe(2)
     expect(store.printProgress).toBe(1)
+  })
+  it('replaces CFS topology, keeps partial updates, and clears sensors with removed units', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    const client = usePrinterWs(),
+      store = usePrinterStore()
+    client.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    const first = {
+      id: 1,
+      type: 0,
+      state: 0,
+      humidity: 28,
+      materials: [{ id: 0, type: 'PETG' }],
+    }
+    const second = {
+      id: 3,
+      type: 0,
+      state: 0,
+      temp: 31,
+      materials: [{ id: 0, type: 'PLA' }],
+    }
+    socket.fire('message', {
+      cfsConnect: 1,
+      boxsInfo: { materialBoxs: [first, second] },
+    })
+    socket.fire('message', { nozzleTemp: 30, boxsInfo: { name: 'CFS' } })
+    expect(store.cfsUnits.map((unit) => unit.id)).toEqual([1, 3])
+    expect(
+      store.cfsUnits.map((unit) => [unit.humidity, unit.temperature]),
+    ).toEqual([
+      [28, null],
+      [null, 31],
+    ])
+    socket.fire('message', { boxsInfo: { materialBoxs: [second] } })
+    expect(store.cfsSlots.map((slot) => slot.boxId)).toEqual([3])
+    socket.fire('message', { boxsInfo: { materialBoxs: [] } })
+    expect(store.cfsUnits).toEqual([])
+    expect(store.cfsSlots).toEqual([])
+  })
+  it('drops disconnected units immediately and never resurrects their cached mapping on reconnect', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    const client = usePrinterWs(),
+      store = usePrinterStore()
+    client.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    const boxes = [
+      { id: 1, type: 0, materials: [{ id: 0, type: 'PETG' }] },
+      { id: 0, type: 1, materials: [{ id: 0, type: 'PLA' }] },
+    ]
+    socket.fire('message', { cfsConnect: 1, boxsInfo: { materialBoxs: boxes } })
+    socket.fire('message', { cfsConnect: 0 })
+    expect(store.cfsUnits).toEqual([])
+    expect(store.spoolSlots).toHaveLength(1)
+    socket.fire('message', { boxsInfo: { materialBoxs: boxes } })
+    expect(store.cfsUnits).toEqual([])
+    socket.fire('message', { cfsConnect: 1 })
+    expect(store.cfsUnits).toEqual([])
+    socket.fire('message', { boxsInfo: { materialBoxs: boxes } })
+    expect(store.cfsUnits).toHaveLength(1)
+    socket.fire('close')
+    expect(store.cfsSlots).toEqual([])
+    expect(store.cfsUnits).toEqual([])
+    expect(store.spoolSlots).toEqual([])
+    socket.fire('message', { cfsConnect: 1, boxsInfo: { materialBoxs: boxes } })
+    expect(store.cfsUnits).toEqual([])
+  })
+  it('does not start if a mapped unit disconnects after colorMatch was sent', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const client = usePrinterWs()
+    client.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    socket.fire('message', {
+      cfsConnect: 1,
+      boxsInfo: {
+        materialBoxs: [
+          { id: 3, type: 0, materials: [{ id: 0, type: 'PETG' }] },
+        ],
+      },
+    })
+    socket.sent = []
+    const original = socket.send.bind(socket)
+    vi.spyOn(socket, 'send').mockImplementation((data) => {
+      original(data)
+      if (JSON.parse(data).params.colorMatch)
+        socket.fire('message', { cfsConnect: 0 })
+    })
+    await expect(
+      client.startPrint('widget.gcode', {
+        source: 'cfs',
+        mappings: [
+          {
+            id: 'T1A',
+            type: 'PETG',
+            color: '#ffffff',
+            boxId: 3,
+            materialId: 0,
+          },
+        ],
+      }),
+    ).rejects.toThrow('no longer available')
+    expect(
+      socket.sent.some(
+        (message) =>
+          (message.params as Record<string, unknown>).multiColorPrint,
+      ),
+    ).toBe(false)
   })
 })

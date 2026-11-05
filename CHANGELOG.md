@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Group connected CFS units by hardware ID with independent readings; show the external spool separately and clear removed/disconnected units.
+- Group print-setup slots by CFS and revalidate connected destinations before each native start step.
+- Add multi-CFS, spool-only, and empty-CFS previews and regression coverage.
+- Fix empty-file upload-link contrast, make Open camera a bordered icon button, and keep the footer at the page bottom without covering long content.
+
 ## 2.0.0 — 2026-11-04
 
 ### Workspace

@@ -174,11 +174,12 @@ Small rounded controls and navigation share the control radius; recessed preview
 - **Fields:** Dark recess, strong border, inherited sans-serif text, muted placeholder. Focus turns the border green; disabled fields use opacity (0.45). Search fields include an inline SVG icon and a focus-within border.
 - **Navigation:** Icon-and-label links within horizontal chrome. Active state combines a green-tinted fill, pale green text, and inset stroke. Mobile retains all five destinations.
 - **Panels and lists:** Border-separated surfaces with section headings and row seams. Generic padded panels use (22px); inspector sections use (18px). Rows reveal actions without converting the whole row into an ambiguous button.
-- **Material sources:** Physical slot labels accompany actual color swatches. Empty slots have dashed swatches. Print setup uses native radios and explicit per-filament selects; selection combines a green stroke and dark green fill.
+- **Material sources:** Each reported CFS gets its own inspector section, hardware ID, and independent readings; disconnected units have no placeholder panels. The external spool has a separate section. Physical slot labels accompany actual color swatches; empty slots remain visible with dashed swatches. Print setup groups loaded slots by unit and uses native radios/selects; selection combines a green stroke and dark green fill.
 - **Dialogs:** Print setup and confirmation use native modal dialogs. Filenames wrap. Confirmation focuses a safe cancel action or required input, traps focus, and supports cancellation; destructive actions use their semantic tone.
 - **Config backups:** Keep snapshots in a collapsed group separate from working files. Show count and storage size, stack actions on narrow screens, and expose active-job locks in text. Destructive confirmations show a bounded, scrollable filename list and require explicit approval.
 - **Icons:** Inline SVG paths with rounded caps/joins and stroke width (1.6), normally (20px), resized for context. Do not substitute text glyphs for controls.
 - **Motion:** Short state transitions, not decorative movement. Loading uses a (700ms) linear spinner; reduced-motion preferences collapse animation and transition duration.
+- **Page footer:** A flexible page column pushes credits and license to the bottom on short pages. On long pages the footer follows the content; do not pin it over controls.
 
 ## Do's and Don'ts
 

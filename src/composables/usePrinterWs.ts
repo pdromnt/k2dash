@@ -1,11 +1,13 @@
 import { ref } from 'vue'
-import { isPreview, previewState } from '@/utils/preview'
+import { isPreview, previewState, previewMaterials } from '@/utils/preview'
 import {
   parsePrintFilaments,
+  validateConnectedCfsMappings,
   type PrintSource,
 } from '@/printer/materialMapping'
 import { usePrinterStore } from '@/stores/printer'
-import type { CfsSlot, TimelapseFile, PrinterState } from '@/stores/printer'
+import type { TimelapseFile, PrinterState } from '@/stores/printer'
+import { parseCfsSnapshot } from '@/printer/cfs'
 import { getWsUrl } from '@/utils/env'
 import { normalizeGcodePath } from '@/utils/format'
 import {
@@ -167,6 +169,7 @@ function parseAndDispatch(msg: Record<string, unknown>) {
 function connect() {
   if (isPreview) {
     const store = usePrinterStore()
+    const materials = parseCfsSnapshot(previewMaterials())!
     store.$patch({
       connected: previewState !== 'offline',
       wsActive: previewState !== 'offline',
@@ -191,25 +194,9 @@ function connect() {
       filamentUsed: 28400,
       fanPart: 0.4,
       ledState: true,
-      cfsName: 'CFS',
-      cfsHumidity: 28,
-      cfsTemp: 26,
-      cfsSlots:
-        previewState === 'empty'
-          ? []
-          : ['#b8c4b4', '#e8b879', '#383c3b', ''].map((color, i) => ({
-              boxId: 1,
-              materialId: i,
-              type: color ? 'PETG' : '',
-              color,
-              name: 'Hyper PETG',
-              vendor: 'Creality',
-              percent: 70,
-              minTemp: 220,
-              maxTemp: 250,
-              state: 0,
-              isSpool: false,
-            })),
+      cfsConnected: materials.units.length > 0,
+      cfsUnits: materials.units,
+      spoolSlots: materials.spoolSlots,
     })
     connected.value = previewState !== 'offline'
     return
@@ -248,6 +235,7 @@ function connect() {
     })
 
     socket.addEventListener('message', (event) => {
+      if (ws !== socket) return
       try {
         const msg = JSON.parse(event.data)
         parseAndDispatch(msg)
@@ -262,15 +250,18 @@ function connect() {
       connected.value = false
       store.connected = false
       store.wsActive = false
+      store.clearMaterials()
       stopTimers()
       rejectPendingResponses(new Error('Printer WebSocket disconnected'))
       scheduleRetry()
     })
 
     socket.addEventListener('error', () => {
+      if (ws !== socket) return
       connected.value = false
       store.connected = false
       store.wsActive = false
+      store.clearMaterials()
       stopTimers()
       socket.close()
       scheduleRetry()
@@ -283,6 +274,19 @@ function connect() {
 
 function parseStatus(msg: Record<string, unknown>) {
   const store = usePrinterStore()
+  if (
+    msg.cfsConnect === 0 ||
+    msg.cfsConnect === 1 ||
+    typeof msg.cfsConnect === 'boolean'
+  ) {
+    const connected = msg.cfsConnect === 1 || msg.cfsConnect === true
+    const changed = store.cfsConnected !== connected
+    store.cfsConnected = connected
+    if (!connected) store.cfsUnits = []
+    // Match CrealityPrint: topology changes request a fresh box snapshot.
+    // Reconnection never reuses slots cached before a disconnect.
+    if (changed) send({ method: 'get', params: { boxsInfo: 1 } })
+  }
   const wasActive =
     store.state === 'printing' ||
     store.state === 'preparing' ||
@@ -429,51 +433,10 @@ function clearPrintJob() {
 
 function parseBoxsInfo(info: Record<string, unknown>) {
   const store = usePrinterStore()
-  store.cfsName =
-    (typeof info.name === 'string' ? info.name : '') || store.cfsName
-
-  const boxs = info.materialBoxs as Array<Record<string, unknown>> | undefined
-  if (!boxs) return
-
-  // First non-spool CFS box wins for humidity/temperature
-  let humidity: number | null = null
-  let temp: number | null = null
-  for (const box of boxs) {
-    if (box.type === 0 && typeof box.humidity === 'number')
-      humidity = box.humidity
-    if (box.type === 0 && typeof box.temp === 'number') temp = box.temp
-    if (humidity !== null && temp !== null) break
-  }
-  if (humidity !== null) store.cfsHumidity = humidity
-  if (temp !== null) store.cfsTemp = temp
-
-  const slots: CfsSlot[] = []
-  for (const box of boxs) {
-    const boxId = typeof box.id === 'number' ? box.id : 0
-    const boxType = typeof box.type === 'number' ? box.type : 0
-    const materials = box.materials as
-      | Array<Record<string, unknown>>
-      | undefined
-    if (!materials) continue
-
-    for (const mat of materials) {
-      const color = typeof mat.color === 'string' ? mat.color : ''
-      slots.push({
-        boxId,
-        materialId: typeof mat.id === 'number' ? mat.id : 0,
-        type: typeof mat.type === 'string' ? mat.type : '',
-        color: color.startsWith('#') ? color : '#' + color,
-        name: typeof mat.name === 'string' ? mat.name : '',
-        vendor: typeof mat.vendor === 'string' ? mat.vendor : '',
-        percent: typeof mat.percent === 'number' ? mat.percent : 0,
-        minTemp: typeof mat.minTemp === 'number' ? mat.minTemp : 0,
-        maxTemp: typeof mat.maxTemp === 'number' ? mat.maxTemp : 0,
-        state: typeof mat.state === 'number' ? mat.state : 0,
-        isSpool: boxType === 1,
-      })
-    }
-  }
-  store.cfsSlots = slots
+  const snapshot = parseCfsSnapshot(info)
+  if (!snapshot) return
+  store.cfsUnits = store.cfsConnected === false ? [] : snapshot.units
+  store.spoolSlots = snapshot.spoolSlots
 }
 
 function parseFileList(info: unknown) {
@@ -589,6 +552,8 @@ export function usePrinterWs() {
       for (const command of commands) {
         if (store.isPrinting || store.isPaused)
           throw new Error('A print started while preparing this job')
+        if (options.source === 'cfs')
+          validateConnectedCfsMappings(options.mappings, store.cfsSlots)
         await sendNative(command)
       }
       startTimer = setTimeout(clearPrintStarting, 15000)

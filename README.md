@@ -44,6 +44,8 @@ Choose **Print** on a saved file to open setup. CFS is the safe default: review 
 
 Choose **External spool** deliberately when using the spool holder. Starting another job is blocked while a print is active or a start request is pending.
 
+CFS units are grouped by their reported hardware IDs, with independent temperature and humidity readings. Only units in the current native box list are shown; a connected unit with empty slots still appears. A global CFS disconnect clears the unit panels, and the external spool is shown separately. Print setup groups available slots by CFS and rejects mappings to removed units. Multi-unit behavior has fixture/test coverage, not a physical multi-CFS print validation.
+
 ### Cleaning up config backups
 
 Open **Config → Clean up old backups**. Timestamped `printer-YYYYMMDD_HHMMSS.cfg` snapshots are grouped in their own collapsible section.
@@ -147,7 +149,7 @@ Printer data and controls still require the printer to be reachable on the LAN; 
 
 ## Safe development previews
 
-With the dev server running, open `http://localhost:5173/?preview=idle`. Other isolated fixtures are `printing`, `paused`, `offline`, and `empty`. Preview mode blocks native commands, HTTP mutations, webcam signaling, and printer data requests. It is unavailable in production builds.
+With the dev server running, open `http://localhost:5173/?preview=idle`. Other isolated fixtures are `printing`, `paused`, `offline`, `empty`, `multi-cfs`, `spool-only`, and `empty-cfs`. Preview mode blocks native commands, HTTP mutations, webcam signaling, and printer data requests. It is unavailable in production builds.
 
 Preview config files include timestamped backups and a protected include so cleanup discovery and confirmation can be inspected without touching printer storage. Deletion remains blocked in preview; automated tests cover successful cleanup, failures, and interrupted operations.
 
