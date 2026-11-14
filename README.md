@@ -155,9 +155,9 @@ Preview config files include timestamped backups and a protected include so clea
 
 ### Validation limits
 
-CFS starts send native `colorMatch` followed by `multiColorPrint`, following CrealityPrint's protocol. Real native file metadata retrieval and compatible slot selection have been checked read-only on a K2 Plus. The command sequence has automated coverage; firmware acceptance and an actual CFS-started print still require a supervised hardware test.
+CFS starts send native `colorMatch` followed by `multiColorPrint`, following CrealityPrint's protocol. Real native file metadata retrieval and compatible slot selection have been checked read-only on a K2 Plus.
 
-Moonraker remains an explicit dependency for the existing file management, configuration editor, and history extension. Native replacements for those capabilities are still under investigation. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
+Moonraker remains an explicit dependency for the existing file management, configuration editor, and history extension. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
 
 ## Development commands
 
