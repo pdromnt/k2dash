@@ -42,6 +42,37 @@ export async function getKlipperState(timeoutMs: number): Promise<string | undef
   return result?.state
 }
 
+/** Described Klipper commands, without executing G-code. */
+export async function getGcodeHelp(): Promise<Record<string, string>> {
+  const { result } = await api.get<{ result?: unknown }>('/printer/gcode/help', {
+    timeoutMs: 5_000,
+    cache: 'no-store',
+  })
+  const entries = result && typeof result === 'object' && !Array.isArray(result)
+    ? Object.entries(result).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    : []
+  if (!entries.length) throw new Error('Klipper returned no command descriptions.')
+  return Object.fromEntries(entries)
+}
+
+export async function getBeltSafetyStatus(): Promise<{ idle: boolean; coolAndOff: boolean }> {
+  const { result } = await api.get<{
+    result?: { status?: Record<string, { state?: unknown; is_active?: unknown; temperature?: unknown; target?: unknown }> }
+  }>('/printer/objects/query?webhooks=state&print_stats=state&virtual_sdcard=is_active' +
+    '&extruder=temperature,target&heater_bed=temperature,target&heater_generic%20chamber_heater=temperature,target',
+  { timeoutMs: 3_000, cache: 'no-store' })
+  const status = result?.status
+  const printState = status?.print_stats?.state
+  const idle = status?.webhooks?.state === 'ready' &&
+    (printState === 'standby' || printState === 'complete' || printState === 'cancelled') &&
+    status?.virtual_sdcard?.is_active === false
+  const coolAndOff = ['extruder', 'heater_bed', 'heater_generic chamber_heater'].every((name) => {
+    const { temperature, target } = status?.[name] ?? {}
+    return target === 0 && typeof temperature === 'number' && temperature >= 0 && temperature <= 40
+  })
+  return { idle, coolAndOff }
+}
+
 export async function getFileList(root = 'gcodes'): Promise<FileInfo[]> {
   const data = await api.get<{ result: FileInfo[] }>(
     `/server/files/list?root=${root}`,

@@ -28,7 +28,7 @@ Version 2.0 introduces a redesigned desktop and mobile workspace, explicit CFS p
 - **Safe utilities** — filament load/unload, leveling, input shaping, belt and Z calibration, plus guarded PID calibration.
 - **File management** — upload, browse, rename, print, and delete G-code files.
 - **Configuration editor** — browse and edit printer configs; group timestamped backups separately and clean up older snapshots while keeping the latest.
-- **G-code console** — live responses, history, and the native Creality WebSocket transport.
+- **G-code console** — native Creality WebSocket commands, command history, and live Klipper output via Moonraker. `HELP` reads Klipper’s documented command list without executing G-code.
 - **History and timelapses** — inspect and clean print history; view recordings in a modal, download, or delete timelapse videos.
 - **Resilient connection** — automatic WebSocket reconnection and clear offline/reconnecting states.
 
@@ -151,7 +151,7 @@ For a shared HTTPS install, serve the proxy-enabled `dist/` on a trusted HTTPS r
 
 | Prefix | Printer service |
 | --- | --- |
-| `/api/moonraker` | HTTP port `7125` |
+| `/api/moonraker` | HTTP port `7125` (also forward WebSocket upgrades for live Console output) |
 | `/api/printer-upload` | HTTP port `80` (uploads, thumbnails, and downloads) |
 | `/api/printer-camera` | HTTP port `8000` |
 | `/api/printer-ws` | WebSocket port `9999` (forward the WebSocket upgrade) |
@@ -172,7 +172,7 @@ The dashboard has been tested on the K2, K2 Pro, and K2 Plus. Model-specific mai
 
 CFS starts send native `colorMatch` followed by `multiColorPrint`, following CrealityPrint's protocol. Real native file metadata retrieval and compatible slot selection have been checked read-only on a K2 Plus.
 
-Moonraker is an explicit dependency for file management, configuration, history, and Klipper restarts. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
+Moonraker is an explicit dependency for file management, configuration, history, Klipper restarts, and read-only Console output and command help. There is no Moonraker fallback for telemetry, print lifecycle, G-code execution, lights, or emergency stop.
 
 **Save + Restart** saves the config and requests a Klipper host restart to reload it. **Controls → Maintenance → Firmware restart** also resets the controller boards, for example when recovering after an emergency stop. Neither action power-cycles the entire machine. If a reply is lost during restart, check the printer before retrying; it may already be restarting.
 
@@ -189,9 +189,11 @@ The wizard links to Creality’s guide, jig model, and video. It includes the op
 
 The wizard is an explicit opt-in for a stock K2 Plus. V1.1.8.0 is the current offline validation reference (the V1.1.8.01 download uses V1.1.8.0 internally). Older and newer versions may work, but are not guaranteed. Stop the wizard at any discrepancy. You are responsible for proceeding and for any resulting issues. The driver writes persistent module flash; K2Dash's transport and operator flow have been tested with fixtures, not on a real printer.
 
-With both belts bare and the printer clear, use **Home all axes** in Printer controls, then enter `BOX_MOVE_TO_SAFE_POS` in Console and wait until the printer is fully parked and stationary. If parking fails or is unconfirmed, do not continue. Open [Creality's procedure and jig guide](https://wiki.creality.com/en/k2-flagship-series/k2-plus/belt-auto-tension-calibration) for physical setup; K2Dash does not home, park, or run the final self-test. The workflow requires fresh idle and cool/heaters-off status, explicit operator checks, and complete readbacks from both modules before it allows a write. It blocks competing commands from the same dashboard session until you finish or stop; emergency stop remains available. Keep other clients and the printer touchscreen from starting jobs or moving the printer. Every stage needs an explicit physical confirmation.
+Follow [Creality's procedure and jig guide](https://wiki.creality.com/en/k2-flagship-series/k2-plus/belt-auto-tension-calibration) for physical setup; the wizard uses firmware commands in place of the service-firmware UI. Use **Check commands** to verify Klipper lists `BELT_MDL_INFO` and `BELT_MDL_CALI`. If needed, use **Turn heaters off** and wait for the temperature and target readings to confirm it’s safe to continue. With both belts bare and the printer clear, confirm the work area and choose **Home & park printer**. This sends homing and `BOX_MOVE_TO_SAFE_POS` with `M400` motion waits; a send is not proof of completion. Wait until the printer is completely still and personally confirm the service position before reading either module. Stop on an error or if parking is unconfirmed; don’t substitute guessed coordinates. The final self-test remains manual.
 
-If that firmware does not expose usable belt replies to K2Dash, or a module has blank or invalid calibration values, the wizard stops rather than guessing. A local send acknowledgment is not a completed write. A timeout, cancellation, disconnect, conflicting response, or wrong readback stops the session without retries. Escape or closing during an active session stops future commands and leaves recovery instructions visible; an already-sent command cannot be recalled. Emergency stop remains accessible inside the dialog. Once a write was attempted, presume the module could be partially calibrated: wait for the printer to stop before removing any jig, inspect/recover with the service procedure, and do not print until the printer has been checked. After a successful run, perform the printer self-test manually with both jigs removed. No printer configuration save is needed.
+The workflow requires fresh idle and cool/heaters-off status, explicit operator checks, and complete readbacks from both modules before it allows a write. While the wizard is open, it reads full safety snapshots and listens to live Klipper replies through Moonraker. Unchanged values and command replies may be absent from Creality’s updates. Commands still use Creality’s connection. The unloaded read starts at least one second after each side’s verified initial reset. Don't home, jog, or run auto-tension with a jig installed. The wizard blocks competing commands from the same dashboard session until you finish or stop; emergency stop remains available. Keep other clients and the printer touchscreen from starting jobs or moving the printer. Every stage needs an explicit physical confirmation.
+
+If that firmware does not expose usable belt replies to K2Dash, or a module has blank or invalid calibration values, the wizard stops rather than guessing. A local send acknowledgment is not a completed write. Between steps, switching tabs or losing the connection pauses the wizard on the current step and locks its calibration controls while reconnecting. It checks fresh printer status and waits for you to review the physical setup and confirm the current step again. On that confirmation, it checks both saved module readings before allowing another write. Nothing is sent automatically. A timeout or disconnect during an operation, a cancellation, a conflicting response, or a wrong readback stops the session without retries. Escape or closing during an active session stops future commands and leaves recovery instructions visible; an already-sent command cannot be recalled. The dialog's Emergency Stop can send only while connected; if disconnected, use the printer's own stop control. Once a write was attempted, presume the module could be partially calibrated: wait for the printer to stop before removing any jig, inspect/recover with the service procedure, and do not print until the printer has been checked. After a successful run, perform the printer self-test manually with both jigs removed. No printer configuration save is needed.
 
 ## Development commands
 
@@ -211,7 +213,7 @@ K2Dash uses native Creality services for telemetry and controls, following Creal
 - Creality WebSocket (`9999`) for real-time state and printer commands.
 - Creality WebRTC signaling (`8000`) for the camera.
 - Creality HTTP upload service (`80`) for G-code uploads.
-- Moonraker (`7125`) for files, history, configuration, and Klipper restarts (explicit features, not a fallback).
+- Moonraker (`7125`) for files, history, configuration, Klipper restarts, and read-only Console output (explicit features, not a command fallback).
 
 Everything stays between your browser and printer on the local network.
 

@@ -3,6 +3,8 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { usePrinterWs } from '@/composables/usePrinterWs'
 import { useBannerStore } from '@/stores/banner'
 import { usePrinterStore } from '@/stores/printer'
+import { getGcodeHelp } from '@/api/moonraker'
+import { listenForKlipperOutput } from '@/api/klipperOutput'
 import { isPreview } from '@/utils/preview'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import PrintActions from './PrintActions.vue'
@@ -21,7 +23,7 @@ import {
   k2Wiki,
 } from '@/printer/beltCalibrationWorkflow'
 
-defineProps<{ disabled?: boolean }>()
+const props = defineProps<{ disabled?: boolean }>()
 const ws = usePrinterWs()
 const banner = useBannerStore()
 const printer = usePrinterStore()
@@ -40,11 +42,29 @@ const attested = ref({
   isolated: false,
   experimental: false,
 })
+const clearForMotion = ref(false)
+const commandsChecked = ref(false)
+const outputConnected = ref(false)
+const outputListeners = new Set<(text: string) => void>()
+const heatersRequested = ref(false)
+const parkRequested = ref(false)
+const prepAction = ref<'check' | 'heaters-off' | 'home-and-park' | null>(null)
+const commandIssue = ref('')
+const prepIssue = ref('')
+const canTurnOffHeaters = ref(false)
+let prepGeneration = 0
 const fresh = ref(false)
 const busy = ref(false)
 const issue = ref('')
 const mayHaveWritten = ref(false)
 const records = ref<BeltModuleReadback[]>([])
+const recovery = ref<'waiting' | 'ready' | null>(null)
+const slowReconnect = ref(false)
+const stepControlsLocked = computed(() =>
+  isPreview || busy.value || recovery.value === 'waiting' ||
+  !fresh.value || !ws.connected.value || !outputConnected.value,
+)
+const stageKey = computed(() => phase.value === 'write' ? `write-${index.value}` : phase.value)
 const step = computed(() => beltWriteSteps[index.value])
 const stageTitle = computed(() => {
   switch (phase.value) {
@@ -80,16 +100,29 @@ const readyForParking = computed(
     attested.value.experimental,
 )
 const completePreflight = computed(
-  () => printer.isK2Plus && Object.values(attested.value).every(Boolean),
+  () => printer.isK2Plus && commandsChecked.value && outputConnected.value && !prepAction.value &&
+    !prepIssue.value && Object.values(attested.value).every(Boolean),
+)
+const canRequestPark = computed(() =>
+  !isPreview && !props.disabled && !busy.value && !prepAction.value && !parkRequested.value &&
+  commandsChecked.value && fresh.value && printer.errorCode === 0 &&
+  clearForMotion.value && attested.value.isolated,
 )
 
 interface LiveSession {
   aborter: InstanceType<typeof window.AbortController>
-  release: () => void
+  lease: ReturnType<typeof ws.acquireBeltCalibration>
   transport: ReturnType<typeof createBeltCalibrationTransport>
 }
 let session: LiveSession | null = null
 let timer: ReturnType<typeof setInterval> | undefined
+let statusMonitor: ReturnType<typeof ws.monitorBeltCalibrationStatus> | undefined
+let stopOutput: (() => void) | undefined
+let visibleRecoveryStartedAt: number | undefined
+let needsWakeSnapshot = false
+let wakeSnapshotPending = false
+let recoveryGeneration = 0
+const SLOW_RECONNECT_MS = 15_000
 
 function focusHeading() {
   void nextTick(() => heading.value?.focus())
@@ -109,12 +142,22 @@ function clearSession() {
   const previous = session
   session = null
   previous?.aborter.abort()
-  previous?.release()
+  previous?.lease.release()
   busy.value = false
 }
 function finishMonitoring() {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  recoveryGeneration++
+  recovery.value = null
   if (timer !== undefined) clearInterval(timer)
   timer = undefined
+  statusMonitor?.stop()
+  statusMonitor = undefined
+  stopOutput?.()
+  stopOutput = undefined
+  outputConnected.value = false
+  prepGeneration++
+  prepAction.value = null
 }
 function stop(reason: string) {
   issue.value = reason
@@ -122,12 +165,62 @@ function stop(reason: string) {
   finishMonitoring()
   show('stopped')
 }
+function pauseAtCurrentStep() {
+  recovery.value = 'waiting'
+  slowReconnect.value = false
+  checked.value = false
+  visibleRecoveryStartedAt = undefined
+  needsWakeSnapshot = true
+  wakeSnapshotPending = false
+  recoveryGeneration++
+}
+
+function onVisibilityChange() {
+  if (!session) return
+  if (busy.value) {
+    if (document.hidden)
+      stop('The tab was hidden while a printer operation was in progress. The wizard will not retry it.')
+    return
+  }
+  pauseAtCurrentStep()
+  checkSafety()
+}
+
+function checkRecovery(safe: boolean) {
+  if (document.hidden) return
+  visibleRecoveryStartedAt ??= Date.now()
+  if (needsWakeSnapshot && ws.connected.value && statusMonitor) {
+    needsWakeSnapshot = false
+    wakeSnapshotPending = true
+    const generation = recoveryGeneration
+    void Promise.resolve(statusMonitor.refresh(true)).finally(() => {
+      if (generation !== recoveryGeneration) return
+      wakeSnapshotPending = false
+      checkSafety()
+    })
+  }
+  if (!needsWakeSnapshot && !wakeSnapshotPending && safe) {
+    recovery.value = 'ready'
+  } else {
+    slowReconnect.value = Date.now() - visibleRecoveryStartedAt >= SLOW_RECONNECT_MS
+  }
+}
+
 function checkSafety() {
   fresh.value = ws.canStartBeltCalibration()
-  if (session && !fresh.value)
-    stop(
-      'The printer stopped reporting a safe, connected, idle state. No further commands were sent.',
-    )
+  canTurnOffHeaters.value = ws.canTurnOffBeltHeaters()
+  if (phase.value === 'park' && parkRequested.value && !session &&
+      (!printer.isK2Plus || printer.isError || printer.errorCode !== 0 || printer.isPrinting || printer.isPaused)) {
+    stop('Parking could not be confirmed. Wait until the printer is still and check its display. No calibration write was sent.')
+  } else if (session) {
+    const safe = fresh.value && ws.connected.value && outputConnected.value
+    if (busy.value && !safe) {
+      stop('The printer stopped reporting a safe, connected, idle state. No further commands were sent.')
+    } else if (!busy.value) {
+      if ((!safe || document.hidden) && recovery.value !== 'waiting') pauseAtCurrentStep()
+      if (recovery.value === 'waiting') checkRecovery(safe)
+    }
+  }
 }
 watch(
   ws.beltCalibrationActive,
@@ -142,11 +235,24 @@ watch(
 watch(
   ws.connected,
   (connected) => {
-    if (session && !connected)
-      stop(
-        'The printer disconnected. The wizard will not resume after reconnecting.',
-      )
-    else checkSafety()
+    if (session) {
+      if (!connected && busy.value)
+        stop('The printer disconnected during an operation. The wizard will not retry it.')
+      else checkSafety()
+    }
+    else if (phase.value === 'park' && !connected && (parkRequested.value || prepAction.value === 'home-and-park'))
+      stop('The printer disconnected after the park request. Check the printer before continuing. No calibration write was sent.')
+    else {
+      if (!connected) {
+        prepGeneration++
+        prepAction.value = null
+        commandsChecked.value = false
+        heatersRequested.value = false
+        clearForMotion.value = false
+        attested.value.parked = false
+      }
+      checkSafety()
+    }
   },
   { flush: 'sync' },
 )
@@ -160,6 +266,12 @@ async function open() {
     isolated: false,
     experimental: false,
   }
+  clearForMotion.value = false
+  commandsChecked.value = false
+  heatersRequested.value = false
+  parkRequested.value = false
+  commandIssue.value = ''
+  prepIssue.value = ''
   records.value = []
   issue.value = ''
   mayHaveWritten.value = false
@@ -170,7 +282,17 @@ async function open() {
   dialog.value?.showModal()
   heading.value?.focus()
   if (!isPreview) {
-    ws.requestBeltCalibrationStatus()
+    statusMonitor = ws.monitorBeltCalibrationStatus()
+    stopOutput = listenForKlipperOutput(
+      (text) => { for (const listener of outputListeners) listener(text) },
+      (online) => {
+        outputConnected.value = online
+        if (!online && session && busy.value)
+          stop('Live Klipper output disconnected during an operation. The wizard will not retry it.')
+        else checkSafety()
+      },
+    )
+    document.addEventListener('visibilitychange', onVisibilityChange)
     timer = setInterval(checkSafety, 1000)
   }
 }
@@ -212,9 +334,54 @@ function readableError(error: unknown): string {
     : 'The printer response could not be verified.'
 }
 
+async function checkCommands() {
+  if (phase.value !== 'park' || prepAction.value || busy.value || commandsChecked.value) return
+  const generation = prepGeneration
+  prepAction.value = 'check'
+  commandIssue.value = ''
+  try {
+    const help = await getGcodeHelp()
+    if (generation !== prepGeneration) return
+    const missing = ['BELT_MDL_INFO', 'BELT_MDL_CALI'].filter((name) => !Object.hasOwn(help, name))
+    if (missing.length) {
+      commandIssue.value = `Klipper does not list ${missing.join(' or ')}. Do not continue.`
+    } else commandsChecked.value = true
+  } catch (error) {
+    if (generation === prepGeneration)
+      commandIssue.value = `Could not check Klipper commands. Check the Moonraker connection and try again. ${readableError(error)}`
+  } finally {
+    if (generation === prepGeneration) prepAction.value = null
+  }
+}
+
+async function runPreparation(action: 'heaters-off' | 'home-and-park') {
+  if (phase.value !== 'park' || isPreview || props.disabled || prepAction.value || busy.value ||
+      (action === 'home-and-park' ? !canRequestPark.value : !canTurnOffHeaters.value || heatersRequested.value)) return
+  const generation = prepGeneration
+  prepAction.value = action
+  prepIssue.value = ''
+  attested.value.parked = false
+  try {
+    await ws.prepareBeltCalibration(action)
+    if (generation !== prepGeneration) return
+    if (action === 'home-and-park') {
+      parkRequested.value = true
+      clearForMotion.value = false
+    } else heatersRequested.value = true
+    void statusMonitor?.refresh()
+    checkSafety()
+  } catch (error) {
+    if (generation === prepGeneration) prepIssue.value = readableError(error)
+  } finally {
+    if (generation === prepGeneration) prepAction.value = null
+  }
+}
+
 async function preflight() {
   if (
     isPreview ||
+    document.hidden ||
+    props.disabled ||
     phase.value !== 'park' ||
     busy.value ||
     !completePreflight.value ||
@@ -230,13 +397,16 @@ async function preflight() {
     const aborter = new window.AbortController()
     active = {
       aborter,
-      release: lease.release,
+      lease,
       transport: createBeltCalibrationTransport({
         send: lease.send,
-        subscribe: ws.onMessage,
+        subscribe(listener) {
+          outputListeners.add(listener)
+          return () => { outputListeners.delete(listener) }
+        },
         signal: aborter.signal,
         canSend: () =>
-          ws.beltCalibrationActive.value && ws.canStartBeltCalibration(),
+          !document.hidden && outputConnected.value && ws.beltCalibrationActive.value && ws.canStartBeltCalibration(),
       }),
     }
     session = active
@@ -249,6 +419,7 @@ async function preflight() {
         )
       updateRecords(sample)
     }
+    active.lease.waitForNextStep()
     show('write')
   } catch (error) {
     if (!active) releaseLease?.()
@@ -265,7 +436,8 @@ async function runStep() {
     !active ||
     !current ||
     !checked.value ||
-    busy.value ||
+    stepControlsLocked.value ||
+    document.hidden ||
     !ws.canStartBeltCalibration()
   )
     return
@@ -278,10 +450,20 @@ async function runStep() {
     )
     return
   }
+  if (!active.lease.beginStep()) return
+  const reconnected = recovery.value === 'ready'
   busy.value = true
-  checked.value = false
-  mayHaveWritten.value = true
+  recovery.value = null
   try {
+    // This stage already re-reads its own module before writing. After an
+    // interruption, also verify the other side before permitting any write.
+    if (reconnected) {
+      const other = records.value.find((record) => record.module !== current.module)
+      if (!other || !identicalBeltReadback(other, await active.transport.read(other.module)))
+        throw new Error('The other belt module changed since its last verified reading. Do not continue.')
+      if (session !== active) return
+    }
+    mayHaveWritten.value = true
     const result = await active.transport.writeAndRead(
       current.module,
       current.direction,
@@ -293,6 +475,7 @@ async function runStep() {
       )
     updateRecords(result)
     index.value++
+    active.lease.waitForNextStep()
     show(index.value === beltWriteSteps.length ? 'verify' : 'write')
   } catch (error) {
     if (session === active) stop(readableError(error))
@@ -303,10 +486,11 @@ async function runStep() {
 
 async function verify() {
   const active = session
-  if (!active || busy.value || !checked.value || !ws.canStartBeltCalibration())
+  if (!active || !checked.value || stepControlsLocked.value ||
+      document.hidden || !active.lease.beginStep())
     return
   busy.value = true
-  checked.value = false
+  recovery.value = null
   try {
     for (const saved of records.value) {
       const final = await active.transport.read(saved.module)
@@ -417,7 +601,7 @@ onUnmounted(() => {
               {{ label }}
             </li>
           </ol>
-          <div class="wizard-body" :aria-busy="busy">
+          <div :key="stageKey" class="wizard-body" :aria-busy="busy">
             <p v-if="isPreview" class="notice">
               Dashboard preview — printer commands are disabled.
             </p>
@@ -425,6 +609,14 @@ onUnmounted(() => {
               {{ step.side }} belt · Step {{ (index % 4) + 1 }} of 4
             </p>
             <h3 ref="heading" tabindex="-1">{{ stageTitle }}</h3>
+            <p v-if="recovery === 'waiting'" role="status" class="notice">
+              {{ slowReconnect
+                ? 'Still reconnecting. Check the printer’s network connection, or stop the wizard.'
+                : 'Rechecking the printer connection and safety status. Calibration controls are locked.' }}
+            </p>
+            <p v-else-if="recovery === 'ready'" role="status" class="notice">
+              Printer status verified. Check that the printer is still parked and the jig matches this step, then confirm again to continue.
+            </p>
             <template v-if="phase === 'prepare'">
               <p>
                 <strong>K2 Plus only.</strong> For other models, see the
@@ -498,44 +690,44 @@ onUnmounted(() => {
               </fieldset>
             </template>
             <template v-else-if="phase === 'park'">
-              <p>
-                The wizard will not home or park the printer for you. If you
-                haven’t prepared it, close this dialog and:
-              </p>
-              <ol class="preparation-list">
-                <li>
-                  Leave both belts bare and use
-                  <strong>Home all axes</strong> in Printer controls.
-                </li>
-                <li>Send <code>BOX_MOVE_TO_SAFE_POS</code> in Console.</li>
-                <li>
-                  Wait for motion to stop and verify the service position. If
-                  parking fails or is unconfirmed, do not continue.
-                </li>
-              </ol>
-              <fieldset :disabled="busy">
+              <div class="prep-row">
+                <button class="btn" type="button" :disabled="busy || !!prepAction || commandsChecked" @click="checkCommands">
+                  {{ prepAction === 'check' ? 'Checking commands…' : 'Check commands' }}
+                </button>
+                <span v-if="commandsChecked" role="status">Both belt module commands are listed by Klipper.</span>
+                <span v-else>Read Klipper’s command list to check that both belt module commands are available.</span>
+              </div>
+              <p v-if="commandIssue" role="alert" class="notice">{{ commandIssue }}</p>
+              <div class="prep-row">
+                <button class="btn" type="button" :disabled="isPreview || disabled || busy || !!prepAction || !canTurnOffHeaters || heatersRequested" @click="runPreparation('heaters-off')">Turn heaters off</button>
+                <span v-if="heatersRequested && !fresh" role="status">Heater shutdown requested. Wait for the printer to cool.</span>
+                <span v-else-if="fresh" role="status">The printer is cool and its heater targets are off.</span>
+                <span v-else-if="canTurnOffHeaters">Turn off any active heaters and wait for the printer to cool before parking.</span>
+                <span v-else>Waiting for a connected, idle K2 Plus and live printer status.</span>
+              </div>
+              <fieldset :disabled="busy || !!prepAction">
                 <legend>At the printer</legend>
-                <label
-                  ><input v-model="attested.parked" type="checkbox" />I homed
-                  and parked the printer with both belts bare. It is cool,
-                  stationary, and clear of hands and tools.</label
-                >
                 <label
                   ><input v-model="attested.isolated" type="checkbox" />I am at
                   the printer with emergency stop available. No one else will
                   print, move it, or issue commands during calibration.</label
                 >
+                <label v-if="!parkRequested"><input v-model="clearForMotion" type="checkbox" />Both belts are bare. The bed and the toolhead’s path are clear of hands, tools, and other objects.</label>
+                <button class="btn btn-warn" type="button" :disabled="!canRequestPark" @click="runPreparation('home-and-park')">Home &amp; park printer</button>
+                <p v-if="parkRequested" role="status" class="notice">Homing and parking requested, not yet verified. Wait until the printer is completely still and check its position and display. If parking fails or you can’t verify it, stop.</p>
+                <p v-else class="service-note">This moves the printer, waits for motion to finish, and uses Creality’s service park command. Skip it if the printer is already homed and correctly parked.</p>
+                <label><input v-model="attested.parked" type="checkbox" />I verified that the printer is homed, correctly parked, and completely still. Both belts are bare and the printer reported no error.</label>
               </fieldset>
+              <p v-if="prepIssue" role="alert" class="notice">{{ prepIssue }}</p>
               <p>
                 The first check only reads both modules. Each later write needs
                 a separate confirmation. No automatic retries.
               </p>
+              <p v-if="!isPreview && !outputConnected" role="status" class="notice">
+                Waiting for live Klipper output. Module reads are disabled until Moonraker connects.
+              </p>
               <p v-if="!printer.isK2Plus" role="status" class="notice">
                 A K2 Plus is no longer detected. Close the wizard and check the printer connection.
-              </p>
-              <p v-else-if="!fresh && !isPreview" role="status" class="notice">
-                Waiting for a fresh idle, cool, heaters-off status. Do not
-                continue until the printer reports it.
               </p>
             </template>
             <template v-else-if="phase === 'write' || phase === 'verify'">
@@ -553,7 +745,7 @@ onUnmounted(() => {
                 values; it does not run the printer’s self-test.
               </p>
               <label class="hold-check"
-                ><input v-model="checked" type="checkbox" :disabled="busy" />
+                ><input v-model="checked" type="checkbox" :disabled="stepControlsLocked" />
                 {{
                   phase === 'write'
                     ? step?.acknowledgment
@@ -633,7 +825,9 @@ onUnmounted(() => {
               <template v-else-if="phase === 'park'">
                 <button
                   class="btn"
+                  :class="{ 'btn-warn wizard-stop': busy }"
                   type="button"
+                  :disabled="!!prepAction"
                   @click="busy ? cancel() : show('prepare')"
                 >
                   {{ busy ? 'Stop wizard' : 'Back' }}
@@ -654,13 +848,13 @@ onUnmounted(() => {
                 </button>
               </template>
               <template v-else-if="phase === 'write' || phase === 'verify'">
-                <button class="btn" type="button" @click="cancel">
+                <button class="btn btn-warn wizard-stop" type="button" @click="cancel">
                   Stop wizard
                 </button>
                 <button
                   class="btn btn-warn"
                   type="button"
-                  :disabled="isPreview || busy || !checked || !fresh"
+                  :disabled="stepControlsLocked || !checked"
                   @click="phase === 'write' ? runStep() : verify()"
                 >
                   {{ phase === 'write' ? step?.action : 'Verify saved values' }}
@@ -774,6 +968,14 @@ p {
   overscroll-behavior: contain;
   scrollbar-color: var(--border) transparent;
   font-size: 14px;
+  animation: wizard-step-arrive 170ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes wizard-step-arrive {
+  from { opacity: 0.55; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wizard-body { animation: none; }
 }
 .wizard-body > * + * {
   margin-top: 16px;
@@ -822,6 +1024,22 @@ a {
 }
 .preparation-list li + li {
   margin-top: 8px;
+}
+.prep-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.prep-row span {
+  flex: 1 1 240px;
+  color: var(--text-dim);
+}
+.wizard-body .btn {
+  min-height: 44px;
+}
+.wizard-body fieldset p {
+  margin-block: 8px;
 }
 strong {
   color: var(--text);
@@ -877,6 +1095,12 @@ input[type='checkbox'] {
 .wizard-footer :deep(.btn) {
   min-height: 44px;
   white-space: normal;
+}
+.wizard-stop {
+  background: transparent;
+}
+.wizard-stop:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--amber) 12%, var(--bg-card));
 }
 .readback {
   font-size: 14px;

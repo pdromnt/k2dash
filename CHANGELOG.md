@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Keep belt calibration on the current step with controls locked while reconnecting between operations, recheck before continuing, and remove the checkbox flash when advancing.
+- Read belt module replies from Klipper’s live output and stop if that connection drops.
+- Keep the belt wizard’s idle/temperature checks current when Creality only sends changed values.
+- Restore live Console output by listening to Klipper’s Moonraker broadcasts while keeping command sends on the native Creality connection.
+- Prepare the printer without leaving the belt wizard: check Klipper commands, turn heaters off, and explicitly home and park. Console `HELP` uses the same read-only command list because native firmware can omit its reply.
+- Reject belt-module replies with trailing firmware errors, enforce the initial reset pause on each side, and clarify verified parking before calibration.
 - Show detected K2-series model names in the header and offer the experimental belt tension wizard only on a detected K2 Plus. K2 and K2 Pro get their manual belt-tensioning guide.
 - Show a temporary Klipper restart banner that explains transient XS3000 warnings and reports unconfirmed recovery after 30 seconds.
 - Add a K2Dash nozzle mark for the navbar, favicon, and correctly sized PWA icons. Document secure install and same-origin proxy options.

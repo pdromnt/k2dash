@@ -17,6 +17,7 @@ export default defineConfig({
       '/api/moonraker': {
         target: `http://${HOST}:${API_PORT}`,
         changeOrigin: true,
+        ws: true,
         rewrite: (path) => path.replace('/api/moonraker', ''),
       },
       '/api/printer-upload': {

@@ -22,6 +22,12 @@ export function getMoonrakerBaseUrl(): string {
   return `http://${HOST}:${API_PORT}`
 }
 
+export function getMoonrakerOutputUrl(): string {
+  if (!proxied) return `ws://${HOST}:${API_PORT}/websocket`
+  const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${scheme}//${window.location.host}/api/moonraker/websocket`
+}
+
 export function getUploadBaseUrl(): string {
   if (proxied) return '/api/printer-upload'
   return `http://${HOST}:${UPLOAD_PORT}`

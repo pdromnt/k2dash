@@ -18,7 +18,15 @@ const state = vi.hoisted(() => ({
   read: vi.fn(),
   write: vi.fn(),
   release: vi.fn(),
+  monitor: vi.fn(),
   request: vi.fn(),
+  stopMonitor: vi.fn(),
+  prep: vi.fn(),
+  help: vi.fn(),
+  canTurnOff: true,
+  outputInitiallyOnline: true,
+  notifyOutputConnection: undefined as ((connected: boolean) => void) | undefined,
+  stopOutput: vi.fn(),
   acquire: vi.fn(),
 }))
 vi.mock('@/utils/preview', () => ({
@@ -35,12 +43,22 @@ vi.mock('@/composables/usePrinterWs', async () => {
       connected: state.connected,
       beltCalibrationActive: state.active,
       canStartBeltCalibration: () => state.safe && state.connected!.value,
-      requestBeltCalibrationStatus: state.request,
+      monitorBeltCalibrationStatus: state.monitor,
+      canTurnOffBeltHeaters: () => state.canTurnOff && state.connected!.value,
+      prepareBeltCalibration: state.prep,
       onMessage: () => () => {},
       acquireBeltCalibration: state.acquire,
     }),
   }
 })
+vi.mock('@/api/moonraker', () => ({ getGcodeHelp: state.help }))
+vi.mock('@/api/klipperOutput', () => ({
+  listenForKlipperOutput: (_reply: (text: string) => void, connection: (online: boolean) => void) => {
+    state.notifyOutputConnection = connection
+    connection(state.outputInitiallyOnline)
+    return state.stopOutput
+  },
+}))
 vi.mock('@/printer/beltCalibrationLive', () => ({
   createBeltCalibrationTransport: () => ({
     read: state.read,
@@ -77,6 +95,7 @@ async function prepare() {
   await click('Open wizard')
   await confirmChecks()
   await click('Continue to preparation')
+  await click('Check commands')
   await confirmChecks()
 }
 async function start() {
@@ -87,9 +106,16 @@ async function start() {
 beforeEach(() => {
   vi.clearAllMocks()
   state.safe = true
+  state.canTurnOff = true
   state.preview = false
+  state.outputInitiallyOnline = true
+  state.notifyOutputConnection = undefined
   state.active!.value = false
   state.connected!.value = true
+  state.monitor.mockReturnValue({ refresh: state.request, stop: state.stopMonitor })
+  state.request.mockReset().mockResolvedValue(undefined)
+  state.prep.mockReset().mockResolvedValue('websocket')
+  state.help.mockReset().mockResolvedValue({ BELT_MDL_INFO: 'read', BELT_MDL_CALI: 'calibrate' })
   samples = {
     mdlx: { module: 'mdlx', position: 9, baselineAdc: 100, loadedAdc: 200 },
     mdly: { module: 'mdly', position: 9, baselineAdc: 300, loadedAdc: 400 },
@@ -111,7 +137,7 @@ beforeEach(() => {
   })
   state.acquire.mockImplementation(() => {
     state.active!.value = true
-    return { send: vi.fn(), release: state.release }
+    return { send: vi.fn(), release: state.release, waitForNextStep: vi.fn(), beginStep: () => state.safe }
   })
   // Native modal rendering/focus is checked in Chromium; this suite exercises its lifecycle.
   HTMLDialogElement.prototype.showModal = function () {
@@ -134,9 +160,167 @@ beforeEach(() => {
 afterEach(() => {
   app.unmount()
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe('belt tension calibration dialog', () => {
+  it('does not send even a module read before Klipper output is connected', async () => {
+    state.outputInitiallyOnline = false
+    await prepare()
+    expect(button('Read both modules').disabled).toBe(true)
+    expect(document.body.textContent).toContain('Waiting for live Klipper output')
+    expect(state.acquire).not.toHaveBeenCalled()
+    state.notifyOutputConnection!(true)
+    await flush()
+    expect(button('Read both modules').disabled).toBe(false)
+    await click('Read both modules')
+    expect(state.read).toHaveBeenCalledTimes(2)
+    expect(state.write).not.toHaveBeenCalled()
+  })
+
+  it('ends the session if the output stream drops during a write', async () => {
+    await start()
+    state.write.mockImplementationOnce(() => new Promise(() => {}))
+    await confirmChecks()
+    await click(beltWriteSteps[0]!.action)
+    expect(state.connected!.value).toBe(true)
+    state.notifyOutputConnection!(false)
+    await flush()
+    expect(document.body.textContent).toContain('Live Klipper output disconnected')
+    expect(state.stopOutput).toHaveBeenCalledOnce()
+    expect(state.release).toHaveBeenCalledOnce()
+    expect(state.write).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the current checkbox checked until a new step replaces it', async () => {
+    await start()
+    let finish!: (sample: BeltModuleReadback) => void
+    state.write.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const previous = document.querySelector<HTMLInputElement>('dialog .hold-check input')!
+    await confirmChecks()
+    await click(beltWriteSteps[0]!.action)
+    expect(previous.checked).toBe(true)
+    expect(previous.disabled).toBe(true)
+    finish({ ...samples.mdlx, position: 0 })
+    await flush()
+    const next = document.querySelector<HTMLInputElement>('dialog .hold-check input')!
+    expect(previous.isConnected).toBe(false)
+    expect(next.checked).toBe(false)
+    expect(button(beltWriteSteps[1]!.action).disabled).toBe(true)
+    expect(document.activeElement?.tagName).toBe('H3')
+  })
+
+  it('refreshes status on return from a hidden tab and asks for a new confirmation', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    vi.useFakeTimers()
+    await start()
+    await confirmChecks()
+    hidden.mockReturnValue(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    state.safe = false
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(state.request).not.toHaveBeenCalled()
+    expect(state.release).not.toHaveBeenCalled()
+    expect(button(beltWriteSteps[0]!.action).disabled).toBe(true)
+    hidden.mockReturnValue(false)
+    state.request.mockImplementationOnce(async () => { state.safe = true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flush()
+    expect(state.request).toHaveBeenCalledExactlyOnceWith(true)
+    expect(document.body.textContent).toContain('Printer status verified')
+    expect(button(beltWriteSteps[0]!.action).disabled).toBe(true)
+    expect(state.read).toHaveBeenCalledTimes(2)
+    expect(state.write).not.toHaveBeenCalled()
+    await confirmChecks()
+    await click(beltWriteSteps[0]!.action)
+    expect(state.read).toHaveBeenLastCalledWith('mdly')
+    expect(state.write).toHaveBeenCalledOnce()
+  })
+
+  it('checks the other module after reconnecting before any write and stops on a mismatch', async () => {
+    await start()
+    state.notifyOutputConnection!(false)
+    state.notifyOutputConnection!(true)
+    await flush()
+    expect(document.body.textContent).toContain('Printer status verified')
+    state.read.mockResolvedValueOnce({ ...samples.mdly, baselineAdc: 301 })
+    await confirmChecks()
+    await click(beltWriteSteps[0]!.action)
+    expect(state.write).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('other belt module changed')
+    expect(document.body.textContent).toContain('No calibration write was attempted')
+  })
+
+  it('does not resume or retry if the tab is hidden during an operation', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    await start()
+    state.write.mockImplementationOnce(() => new Promise(() => {}))
+    await confirmChecks()
+    await click(beltWriteSteps[0]!.action)
+    hidden.mockReturnValue(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    hidden.mockReturnValue(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flush()
+    expect(document.body.textContent).toContain('tab was hidden while a printer operation was in progress')
+    expect(state.release).toHaveBeenCalledOnce()
+    expect(state.write).toHaveBeenCalledOnce()
+  })
+
+  it('checks the command list without sending G-code and requires parking confirmation before reading', async () => {
+    await click('Open wizard')
+    await confirmChecks()
+    await click('Continue to preparation')
+    const body = document.querySelector('.wizard-body')!
+    expect(button('Home & park printer').disabled).toBe(true)
+    expect(button('Read both modules').disabled).toBe(true)
+    await click('Check commands')
+    expect(body.textContent).toContain('Both belt module commands are listed')
+    expect(button('Read both modules').disabled).toBe(true)
+    expect(state.prep).not.toHaveBeenCalled()
+    expect(state.read).not.toHaveBeenCalled()
+    expect(state.write).not.toHaveBeenCalled()
+  })
+
+  it('keeps heater shutdown and parking in the dialog without treating a queued move as verified', async () => {
+    await prepare()
+    await click('Turn heaters off')
+    expect(state.prep.mock.calls).toEqual([['heaters-off']])
+    expect(button('Read both modules').disabled).toBe(true)
+    await confirmChecks()
+    await click('Home & park printer')
+    expect(state.prep.mock.calls).toEqual([['heaters-off'], ['home-and-park']])
+    expect(document.body.textContent).toContain('requested, not yet verified')
+    expect(button('Read both modules').disabled).toBe(true)
+    expect(button('Home & park printer').disabled).toBe(true)
+    expect(document.querySelector('dialog')?.open).toBe(true)
+    expect(state.acquire).not.toHaveBeenCalled()
+    await confirmChecks()
+    await click('Read both modules')
+    expect(state.read).toHaveBeenCalledTimes(2)
+  })
+
+  it('blocks parking and calibration when Klipper does not list a required command', async () => {
+    state.help.mockResolvedValue({ BELT_MDL_INFO: 'read' })
+    await prepare()
+    expect(document.body.textContent).toContain('Klipper does not list BELT_MDL_CALI')
+    expect(button('Home & park printer').disabled).toBe(true)
+    expect(button('Read both modules').disabled).toBe(true)
+    expect(state.prep).not.toHaveBeenCalled()
+  })
+
+  it('stops after losing the printer connection during parking', async () => {
+    await prepare()
+    await click('Home & park printer')
+    state.connected!.value = false
+    await flush()
+    expect(document.body.textContent).toContain('disconnected after the park request')
+    expect(document.querySelector('dialog')?.open).toBe(true)
+    expect(state.acquire).not.toHaveBeenCalled()
+    expect(state.write).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['F021', 'K2', 'k2'],
     ['F012', 'K2 Pro', 'k2-pro'],
@@ -194,7 +378,7 @@ describe('belt tension calibration dialog', () => {
     expect(document.querySelector('.wizard-body strong')?.textContent).toBe('K2 Plus only.')
     expect(document.body.textContent).toContain('Firmware reference: 1.1.8.0')
     expect(button('Continue to preparation').disabled).toBe(true)
-    expect(state.request).toHaveBeenCalledOnce()
+    expect(state.monitor).toHaveBeenCalledOnce()
     expect(state.read).not.toHaveBeenCalled()
     expect(state.write).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('7.5 N ± 0.5 N')
@@ -280,16 +464,50 @@ describe('belt tension calibration dialog', () => {
     expect(state.release).toHaveBeenCalledOnce()
   })
 
-  it('stops on disconnect without resuming or retrying', async () => {
+  it('preserves the step and sends nothing while reconnecting between operations', async () => {
     await start()
+    await confirmChecks()
     state.connected!.value = false
+    state.notifyOutputConnection!(false)
     await flush()
-    expect(document.body.textContent).toContain('printer disconnected')
+    expect(document.body.textContent).toContain('Rechecking the printer connection')
     state.connected!.value = true
     await flush()
+    expect(button(beltWriteSteps[0]!.action).disabled).toBe(true)
+    state.notifyOutputConnection!(true)
+    await flush()
+    expect(document.body.textContent).toContain('Printer status verified')
+    expect(button(beltWriteSteps[0]!.action).disabled).toBe(true)
     expect(state.write).not.toHaveBeenCalled()
     expect(state.read).toHaveBeenCalledTimes(2)
-    expect(document.body.textContent).toContain('Calibration stopped')
+    expect(state.release).not.toHaveBeenCalled()
+  })
+
+  it('keeps the same step and controls locked through a prolonged reconnect', async () => {
+    vi.useFakeTimers()
+    await start()
+    await confirmChecks()
+    const heading = document.querySelector('dialog h3')
+    const checkbox = document.querySelector<HTMLInputElement>('dialog .hold-check input')!
+    const advance = button(beltWriteSteps[0]!.action)
+    state.connected!.value = false
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(document.body.textContent).toContain('Still reconnecting')
+    expect(document.querySelector('dialog h3')).toBe(heading)
+    expect(checkbox.disabled).toBe(true)
+    expect(advance.disabled).toBe(true)
+    expect(button('Stop wizard').disabled).toBe(false)
+    expect(button('Stop wizard').classList.contains('btn-warn')).toBe(true)
+    expect(state.active!.value).toBe(true)
+    advance.dispatchEvent(new Event('click', { bubbles: true }))
+    expect(state.release).not.toHaveBeenCalled()
+    expect(state.write).not.toHaveBeenCalled()
+    state.connected!.value = true
+    await flush()
+    expect(document.body.textContent).toContain('Printer status verified')
+    expect(checkbox.disabled).toBe(false)
+    expect(advance.disabled).toBe(true)
+    expect(state.write).not.toHaveBeenCalled()
   })
 
   it('does not report success if the final module values changed', async () => {

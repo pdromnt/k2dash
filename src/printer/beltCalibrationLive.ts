@@ -10,13 +10,14 @@ export interface BeltModuleReadback {
 
 interface BeltCalibrationTransportOptions {
   send: (gcode: string) => Promise<unknown>
-  subscribe: (listener: (message: Record<string, unknown>) => void) => () => void
+  subscribe: (listener: (text: string) => void) => () => void
   canSend: () => boolean
   signal?: AbortSignal
   timeoutMs?: number
 }
 
 const WAIT_MS = 12_000
+const RESET_SETTLE_MS = 1_000
 const UNSET = 0xffff_ffff
 const directions = [0, 1, 2, 0] as const
 const fields = {
@@ -25,12 +26,8 @@ const fields = {
   full_adc: 'loadedAdc',
 } as const
 
-function responseLines(message: Record<string, unknown>) {
-  const response = message.gcodeRes ?? message.gcode_response
-  const parts = typeof response === 'string' ? [response] : Array.isArray(response) ? response : []
-  return parts.flatMap((part: unknown) => typeof part === 'string'
-    ? part.split(/\r?\n/).map((line) => line.trim().replace(/^\/\/\s*/, ''))
-    : [])
+function responseLines(text: string) {
+  return text.split(/\r?\n/).map((line) => line.trim().replace(/^\/\/\s*/, ''))
 }
 
 function uint32(text: string): number | undefined {
@@ -64,7 +61,6 @@ function parser(module: BeltModule, writeDirection?: BeltCalibrationDirection) {
   const values: Partial<Omit<BeltModuleReadback, 'module'>> = {}
 
   return (line: string): { record: BeltModuleReadback; sample?: number } | undefined => {
-    if (firmwareError(line)) throw new Error('The printer reported a belt module or G-code error.')
     if (line === 'ACK_mdl_info') {
       if (ack || (writeDirection !== undefined && !writeAck)) {
         throw new Error('Unexpected belt module reply. A fresh, ordered readback is required.')
@@ -127,6 +123,7 @@ function parser(module: BeltModule, writeDirection?: BeltCalibrationDirection) {
 export function createBeltCalibrationTransport(options: BeltCalibrationTransportOptions) {
   const snapshots: Partial<Record<BeltModule, BeltModuleReadback>> = {}
   const phase: Record<BeltModule, number> = { mdlx: 0, mdly: 0 }
+  const baselineNotBefore: Record<BeltModule, number> = { mdlx: 0, mdly: 0 }
   let busy = false
   let invalidated = false
 
@@ -134,6 +131,22 @@ export function createBeltCalibrationTransport(options: BeltCalibrationTransport
     if (invalidated || options.signal?.aborted || !options.canSend()) {
       throw new Error('Calibration session is not safe to continue. Restart with a fresh preflight.')
     }
+  }
+
+  function waitForReset(module: BeltModule) {
+    const remaining = Math.ceil(baselineNotBefore[module] - globalThis.performance.now())
+    if (remaining <= 0) return
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        options.signal?.removeEventListener('abort', abort)
+        resolve()
+      }, remaining)
+      function abort() {
+        clearTimeout(timer)
+        reject(new Error('Calibration session interrupted.'))
+      }
+      options.signal?.addEventListener('abort', abort, { once: true })
+    })
   }
 
   function exchange(module: BeltModule, script: string, direction?: BeltCalibrationDirection) {
@@ -156,12 +169,19 @@ export function createBeltCalibrationTransport(options: BeltCalibrationTransport
       }
       options.signal?.addEventListener('abort', abort, { once: true })
       try {
-        unsubscribe = options.subscribe((message) => {
+        unsubscribe = options.subscribe((text) => {
           // Reject subscription replay as evidence for this exchange.
           if (!started) return
           try {
             assertReady()
-            for (const line of responseLines(message)) {
+            const lines = responseLines(text)
+            // Klipper can send each field as a separate notification. The
+            // evaluated firmware emits MDL_NAME only after its module routine
+            // returns. Check every line in a batched response before accepting it.
+            if (lines.some(firmwareError)) {
+              throw new Error('The printer reported a belt module or G-code error.')
+            }
+            for (const line of lines) {
               const result = parse(line)
               if (result) {
                 finish(undefined, result)
@@ -221,6 +241,10 @@ export function createBeltCalibrationTransport(options: BeltCalibrationTransport
         || (module === 'mdly' && phase.mdlx !== directions.length)) {
         throw new Error('Both belt modules require successful preflight and each stage must be run in order.')
       }
+      if (direction === 1) {
+        const settling = waitForReset(module)
+        if (settling) await settling
+      }
       const { record: before } = await exchange(module, `BELT_MDL_INFO MDL_NAME=${module}`)
       if (!sameFields(previous, before)) throw new Error('The belt module changed since its last readback.')
       const capture = direction === 1 ? ' TEN=140' : direction === 2 ? ' TEN=160' : ''
@@ -247,6 +271,11 @@ export function createBeltCalibrationTransport(options: BeltCalibrationTransport
         throw new Error(`Calibration write outcome is uncertain. Stop; do not retry or move with the jig installed. ${detail}`, { cause: error })
       }
       snapshots[module] = { ...result.record }
+      // Start the dwell only once the initial reset has been verified. The
+      // final reset doesn't lead to another baseline on this module.
+      if (phase[module] === 0) {
+        baselineNotBefore[module] = globalThis.performance.now() + RESET_SETTLE_MS
+      }
       phase[module]++
       return result.record
     })

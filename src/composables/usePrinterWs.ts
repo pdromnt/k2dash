@@ -1,4 +1,5 @@
-import { reactive, ref } from 'vue'
+import { ref } from 'vue'
+import { getBeltSafetyStatus } from '@/api/moonraker'
 import { isPreview, previewState, previewMaterials } from '@/utils/preview'
 import {
   parsePrintFilaments,
@@ -72,24 +73,27 @@ function clearPrintStarting() {
 const connected = ref(false)
 const beltCalibrationActive = ref(false)
 let beltCalibrationOwner: symbol | null = null
-const BELT_STATUS_MAX_AGE_MS = STATUS_POLL_MS * 2
+let beltBetweenSteps = false
+const BELT_STATUS_POLL_MS = 2_000
+const BELT_STATUS_MAX_AGE_MS = 5_000
 const BELT_HEATER_KEYS = [
-  'nozzleTemp', 'targetNozzleTemp', 'bedTemp0', 'targetBedTemp0',
-  'boxTemp', 'targetBoxTemp',
+  'nozzleTemp', 'targetNozzleTemp', 'bedTemp0', 'targetBedTemp0', 'boxTemp', 'targetBoxTemp',
 ] as const
-type BeltHeaterKey = (typeof BELT_HEATER_KEYS)[number]
-const beltTelemetry = reactive(new Map<BeltHeaterKey, { value: number; seen: number }>())
-const beltStateSeen = ref<number>()
+let beltSnapshot: (Awaited<ReturnType<typeof getBeltSafetyStatus>> & { requestedAt: number }) | undefined
+let beltMonitorGeneration = 0
+let beltNativeStateSeen = false
+let beltHeaterRevision = 0
 
 function invalidateBeltCalibration() {
   beltCalibrationOwner = null
+  beltBetweenSteps = false
   beltCalibrationActive.value = false
 }
 
 function resetBeltTelemetry() {
-  beltStateSeen.value = undefined
-  beltTelemetry.clear()
-  invalidateBeltCalibration()
+  beltNativeStateSeen = false
+  beltSnapshot = undefined
+  if (!beltBetweenSteps) invalidateBeltCalibration()
 }
 const subscribers = new Set<WsSubscriber>()
 const pendingResponses = new Set<PendingResponse>()
@@ -103,17 +107,19 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null
 // or printFilename changes.
 const fileList = ref<Array<Record<string, unknown>>>([])
 
+function nativeBeltIdle(store: ReturnType<typeof usePrinterStore>): boolean {
+  return ['idle', 'ready', 'complete'].includes(store.state)
+}
+
+function hasIdleBeltStatus(store: ReturnType<typeof usePrinterStore>, now = Date.now()): boolean {
+  return !isPreview && store.isK2Plus && connected.value && ws?.readyState === WebSocket.OPEN &&
+    !starting && !printStarting.value && nativeBeltIdle(store) &&
+    beltNativeStateSeen && beltSnapshot?.idle === true &&
+    now - beltSnapshot.requestedAt <= BELT_STATUS_MAX_AGE_MS
+}
+
 function hasSafeBeltStatus(store: ReturnType<typeof usePrinterStore>): boolean {
-  const now = Date.now()
-  if (isPreview || !store.isK2Plus || !connected.value || ws?.readyState !== WebSocket.OPEN ||
-      starting || printStarting.value ||
-      !['idle', 'ready', 'complete'].includes(store.state) ||
-      beltStateSeen.value === undefined || now - beltStateSeen.value > BELT_STATUS_MAX_AGE_MS) return false
-  return BELT_HEATER_KEYS.every((key) => {
-    const field = beltTelemetry.get(key)
-    return field !== undefined && now - field.seen <= BELT_STATUS_MAX_AGE_MS &&
-      (key.startsWith('target') ? field.value === 0 : field.value >= 0 && field.value <= 40)
-  })
+  return hasIdleBeltStatus(store) && beltSnapshot?.coolAndOff === true
 }
 
 function backoff(): number {
@@ -344,27 +350,32 @@ function parseStatus(msg: Record<string, unknown>) {
   }
 
   if (typeof msg.deviceState === 'number') {
+    beltNativeStateSeen = true
     store.state = (DEVICE_STATE_MAP[msg.deviceState] ||
       'unknown') as PrinterState
     if (msg.deviceState === 0) clearPrintJob()
   } else if (typeof msg.deviceState === 'string') {
+    beltNativeStateSeen = true
     store.state = msg.deviceState as PrinterState
     if (msg.deviceState === 'idle') clearPrintJob()
   } else if (typeof msg.state === 'string') {
+    beltNativeStateSeen = true
     store.state = msg.state as PrinterState
+  } else if (Object.hasOwn(msg, 'deviceState')) {
+    beltNativeStateSeen = false
   }
 
-  if (Object.hasOwn(msg, 'deviceState') || Object.hasOwn(msg, 'state')) {
-    const rawState = msg.deviceState ?? msg.state
-    beltStateSeen.value = (typeof rawState === 'number' || typeof rawState === 'string') ? Date.now() : undefined
-  }
-  for (const key of BELT_HEATER_KEYS) {
-    if (!Object.hasOwn(msg, key)) continue
+  // An unsafe native update overrides a cool snapshot immediately, including
+  // a snapshot request that was already in flight when the update arrived.
+  const unsafeHeater = BELT_HEATER_KEYS.some((key) => {
+    if (!Object.hasOwn(msg, key)) return false
     const raw = msg[key]
-    const value = typeof raw === 'number' || (typeof raw === 'string' && raw.trim())
-      ? Number(raw) : NaN
-    if (Number.isFinite(value)) beltTelemetry.set(key, { value, seen: Date.now() })
-    else beltTelemetry.delete(key)
+    const value = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN
+    return key.startsWith('target') ? value !== 0 : !(value >= 0 && value <= 40)
+  })
+  if (unsafeHeater) {
+    beltHeaterRevision++
+    if (beltSnapshot) beltSnapshot.coolAndOff = false
   }
 
   const isActive =
@@ -417,7 +428,10 @@ function parseStatus(msg: Record<string, unknown>) {
   const ctt = n(msg.targetBoxTemp)
   if (ctt !== undefined) store.chamberTarget = ctt
 
-  if (beltCalibrationOwner && !hasSafeBeltStatus(store)) invalidateBeltCalibration()
+  if (beltCalibrationOwner &&
+      (unsafeHeater || (store.modelId !== '' && !store.isK2Plus) ||
+        (beltNativeStateSeen && !nativeBeltIdle(store)) ||
+        (!beltBetweenSteps && !hasSafeBeltStatus(store)))) invalidateBeltCalibration()
 
   const pp = n(msg.printProgress)
   // Creality's WS reports percentage points directly (1 means 1%, not
@@ -568,8 +582,73 @@ export function usePrinterWs() {
     return hasSafeBeltStatus(store)
   }
 
-  function requestBeltCalibrationStatus() {
-    send(statusRequest())
+  function monitorBeltCalibrationStatus() {
+    const generation = ++beltMonitorGeneration
+    beltSnapshot = undefined
+    let pending = false
+    let latestRequest = 0
+    async function refresh(force = false) {
+      const socket = ws
+      if (isPreview || (pending && !force) || generation !== beltMonitorGeneration ||
+          !connected.value || socket?.readyState !== WebSocket.OPEN) return
+      if (force) beltSnapshot = undefined
+      const request = ++latestRequest
+      const isCurrent = () => request === latestRequest &&
+        generation === beltMonitorGeneration && ws === socket && connected.value
+      pending = true
+      const requestedAt = Date.now()
+      const heaterRevision = beltHeaterRevision
+      try {
+        // Creality pushes deltas, so unchanged targets/state can go unreported.
+        // Read a complete safety snapshot; keep Creality as the command transport.
+        const status = await getBeltSafetyStatus()
+        if (isCurrent()) {
+          beltSnapshot = {
+            ...status,
+            coolAndOff: status.coolAndOff && beltHeaterRevision === heaterRevision,
+            requestedAt,
+          }
+          if (beltCalibrationOwner && (!beltSnapshot.idle || !beltSnapshot.coolAndOff))
+            invalidateBeltCalibration()
+        }
+      } catch {
+        if (isCurrent()) beltSnapshot = undefined
+      } finally {
+        if (request === latestRequest) pending = false
+        if (isCurrent() && beltCalibrationOwner && !beltBetweenSteps && !hasSafeBeltStatus(store))
+          invalidateBeltCalibration()
+      }
+    }
+    void refresh()
+    const timer = setInterval(() => void refresh(), BELT_STATUS_POLL_MS)
+    return {
+      refresh,
+      stop() {
+        clearInterval(timer)
+        if (generation === beltMonitorGeneration) {
+          beltMonitorGeneration++
+          beltSnapshot = undefined
+          invalidateBeltCalibration()
+        }
+      },
+    }
+  }
+
+  function canTurnOffBeltHeaters() {
+    return !beltCalibrationOwner && hasIdleBeltStatus(store)
+  }
+
+  async function prepareBeltCalibration(action: 'heaters-off' | 'home-and-park') {
+    if (!canTurnOffBeltHeaters()) {
+      throw new Error('Wait for a connected, idle K2 Plus. Close any active calibration session first.')
+    }
+    if (action === 'home-and-park' && (store.errorCode !== 0 || !canStartBeltCalibration())) {
+      throw new Error('Wait for the printer to cool and report all heaters off before homing.')
+    }
+    const script = action === 'heaters-off'
+      ? 'M104 S0\nM140 S0\nM141 S0'
+      : 'G28\nM400\nBOX_MOVE_TO_SAFE_POS\nM400'
+    return sendNative(gcodeCommand(script))
   }
 
   function acquireBeltCalibration() {
@@ -582,9 +661,17 @@ export function usePrinterWs() {
     beltCalibrationActive.value = true
     return {
       async send(script: string) {
-        if (beltCalibrationOwner !== owner || !canStartBeltCalibration())
+        if (beltCalibrationOwner !== owner || beltBetweenSteps || !canStartBeltCalibration())
           throw new Error('Belt calibration stopped: current printer status is not safe')
         return sendNative(gcodeCommand(script), owner)
+      },
+      waitForNextStep() {
+        if (beltCalibrationOwner === owner) beltBetweenSteps = true
+      },
+      beginStep() {
+        if (beltCalibrationOwner !== owner || !canStartBeltCalibration()) return false
+        beltBetweenSteps = false
+        return true
       },
       release() {
         if (beltCalibrationOwner === owner) invalidateBeltCalibration()
@@ -700,7 +787,9 @@ export function usePrinterWs() {
     printStarting,
     beltCalibrationActive,
     canStartBeltCalibration,
-    requestBeltCalibrationStatus,
+    canTurnOffBeltHeaters,
+    prepareBeltCalibration,
+    monitorBeltCalibrationStatus,
     acquireBeltCalibration,
     connect,
     onMessage,

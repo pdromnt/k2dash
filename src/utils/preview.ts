@@ -51,6 +51,8 @@ export function previewMaterials(): Record<string, unknown> {
 }
 
 export function previewResponse(path: string): unknown {
+  if (path === '/printer/gcode/help')
+    return { result: { BELT_MDL_INFO: 'Read a belt module', BELT_MDL_CALI: 'Calibrate a belt module' } }
   if (path.includes('root=config'))
     return {
       result:

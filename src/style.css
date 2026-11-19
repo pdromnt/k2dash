@@ -1566,7 +1566,7 @@ textarea {
     min-height: 36px;
     padding: 0;
   }
-  .stop-button .action-label {
+  .header-actions .stop-button .action-label {
     display: none;
   }
   .header-actions .btn {

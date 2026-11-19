@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBeltCalibrationTransport } from './beltCalibrationLive'
 import type { BeltModule, BeltModuleReadback } from './beltCalibrationLive'
 
-type Listener = (message: Record<string, unknown>) => void
+type Listener = (text: string) => void
 function harness() {
   const listeners = new Set<Listener>()
   const controller = new AbortController()
@@ -16,7 +16,7 @@ function harness() {
     },
   })
   function emit(...lines: string[]) {
-    for (const listener of listeners) listener({ gcode_response: lines.join('\n') })
+    for (const listener of listeners) listener(lines.join('\n'))
   }
   function info(module: BeltModule, position = 9, baseline = 1000, loaded = 1200) {
     emit('// ACK_mdl_info', `// current_place:${position}`, `// idl_adc:${baseline}`,
@@ -39,6 +39,9 @@ function harness() {
 }
 
 describe('belt calibration live response guards', () => {
+  beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] }))
+  afterEach(() => vi.useRealTimers())
+
   it('ignores stray ACKs and pre-ACK fields, then reads a complete matching uint32 record', async () => {
     const h = harness()
     const result = h.transport.read('mdlx')
@@ -47,6 +50,30 @@ describe('belt calibration live response guards', () => {
     expect(await result).toEqual({ module: 'mdlx', position: 12, baselineAdc: 4_000_000_000, loadedAdc: 4_000_000_001 })
     expect(h.send).toHaveBeenCalledExactlyOnceWith('BELT_MDL_INFO MDL_NAME=mdlx')
     expect(h.listeners.size).toBe(0)
+  })
+
+  it('accepts the stock firmware reply split into individual Klipper notifications', async () => {
+    const h = harness()
+    const result = h.transport.read('mdlx')
+    for (const line of [
+      'ACK_mdl_info', 'halversion:1', 'softversion:2', 'current_place:0',
+      'idl_adc:4294405000', 'full_adc:4294041000', 'adc_num:4294585000',
+    ]) h.emit(`// ${line}`)
+    expect(h.listeners.size).toBe(1)
+    h.emit('// MDL_NAME: mdlx')
+    await expect(result).resolves.toEqual({
+      module: 'mdlx', position: 0, baselineAdc: 4_294_405_000, loadedAdc: 4_294_041_000,
+    })
+  })
+
+  it('rejects firmware errors in a separate notification before the terminal module name', async () => {
+    const h = harness()
+    const result = h.transport.read('mdlx')
+    h.emit('// ACK_mdl_info', '// current_place:0', '// idl_adc:1000', '// full_adc:1200')
+    h.emit('!! communication error')
+    h.emit('// MDL_NAME: mdlx')
+    await expect(result).rejects.toThrow('belt module or G-code error')
+    expect(h.send).toHaveBeenCalledTimes(1)
   })
 
   it.each([
@@ -74,6 +101,16 @@ describe('belt calibration live response guards', () => {
     await expect(missing).rejects.toThrow('incomplete readback')
   })
 
+  it('rejects a valid-looking record followed by a communication error in the same frame', async () => {
+    const h = harness()
+    const result = h.transport.read('mdlx')
+    h.emit('ACK_mdl_info', 'current_place:0', 'idl_adc:1000', 'full_adc:1200',
+      'MDL_NAME: mdlx', '!! communication error')
+    await expect(result).rejects.toThrow('belt module or G-code error')
+    await expect(h.transport.read('mdly')).rejects.toThrow('not safe')
+    expect(h.send).toHaveBeenCalledExactlyOnceWith('BELT_MDL_INFO MDL_NAME=mdlx')
+  })
+
   it('requires both modules and refuses any out-of-order write', async () => {
     const h = harness()
     await expect(h.transport.writeAndRead('mdlx', 0)).rejects.toThrow('preflight')
@@ -85,14 +122,68 @@ describe('belt calibration live response guards', () => {
   })
 
   async function stage(h: ReturnType<typeof harness>, direction: 0 | 1 | 2,
-    before: [number, number, number], after: [number, number, number], sample?: number) {
-    const result = h.transport.writeAndRead('mdlx', direction)
-    h.info('mdlx', ...before)
+    before: [number, number, number], after: [number, number, number], sample?: number, module: BeltModule = 'mdlx') {
+    if (direction === 1) await vi.advanceTimersByTimeAsync(1000)
+    const result = h.transport.writeAndRead(module, direction)
+    h.info(module, ...before)
     await Promise.resolve()
-    h.writeTelemetry('mdlx', sample)
-    h.info('mdlx', ...after)
+    h.writeTelemetry(module, sample)
+    h.info(module, ...after)
     return result
   }
+
+  it.each(['mdlx', 'mdly'] as const)('waits one full second after the verified initial reset of %s', async (module) => {
+    const h = harness()
+    await h.preflight()
+    const first: [number, number, number] = [9, 1000, 1200]
+    const zeroed: [number, number, number] = [0, 1000, 1200]
+    if (module === 'mdly') {
+      await stage(h, 0, first, zeroed)
+      await stage(h, 1, zeroed, zeroed, 1000)
+      await stage(h, 2, zeroed, zeroed, 1200)
+      await stage(h, 0, zeroed, zeroed)
+    }
+    await stage(h, 0, first, zeroed, undefined, module)
+    h.send.mockClear()
+    const capture = h.transport.writeAndRead(module, 1)
+    await vi.advanceTimersByTimeAsync(999)
+    expect(h.send).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(h.send).toHaveBeenCalledExactlyOnceWith(`BELT_MDL_INFO MDL_NAME=${module}`)
+    h.info(module, ...zeroed)
+    await Promise.resolve()
+    expect(h.send.mock.calls[1]?.[0]).toContain(`BELT_MDL_CALI MDL_NAME=${module} DIR=1 TEN=140`)
+    h.writeTelemetry(module, 1000)
+    h.info(module, ...zeroed)
+    await expect(capture).resolves.toMatchObject({ module, baselineAdc: 1000 })
+  })
+
+  it('cancels a pending baseline during the settling interval without sending it', async () => {
+    const h = harness()
+    await h.preflight()
+    await stage(h, 0, [9, 1000, 1200], [0, 1000, 1200])
+    h.send.mockClear()
+    const capture = h.transport.writeAndRead('mdlx', 1)
+    h.controller.abort()
+    await expect(capture).rejects.toThrow('interrupted')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(h.send).not.toHaveBeenCalled()
+    expect(h.listeners.size).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rechecks the safety lock after settling and before sending anything', async () => {
+    const h = harness()
+    await h.preflight()
+    await stage(h, 0, [9, 1000, 1200], [0, 1000, 1200])
+    h.send.mockClear()
+    const capture = h.transport.writeAndRead('mdlx', 1)
+    const rejected = expect(capture).rejects.toThrow('not safe')
+    h.canSend.mockReturnValue(false)
+    await vi.advanceTimersByTimeAsync(1000)
+    await rejected
+    expect(h.send).not.toHaveBeenCalled()
+  })
 
   it('verifies unrelated fields and allows a captured value to repeat', async () => {
     const h = harness()
@@ -123,6 +214,20 @@ describe('belt calibration live response guards', () => {
     const h = harness()
     await h.preflight()
     await expect(stage(h, 0, [9, 1000, 1200], [0, 1001, 1200])).rejects.toThrow('outcome is uncertain')
+  })
+
+  it('does not certify or retry a write followed by a trailing error', async () => {
+    const h = harness()
+    await h.preflight()
+    const result = h.transport.writeAndRead('mdlx', 0)
+    h.info('mdlx')
+    await Promise.resolve()
+    h.writeTelemetry('mdlx')
+    h.emit('ACK_mdl_info\ncurrent_place:0\nidl_adc:1000\nfull_adc:1200\nMDL_NAME: mdlx',
+      '{"code":"key701","msg":"Module error"}')
+    await expect(result).rejects.toThrow('outcome is uncertain')
+    await expect(h.transport.writeAndRead('mdlx', 1)).rejects.toThrow('not safe')
+    expect(h.send).toHaveBeenCalledTimes(2)
   })
 
   it('rejects bare write ACK, never sending retries', async () => {
@@ -182,7 +287,9 @@ describe('belt calibration live response guards', () => {
 
   it('times out instead of trusting delivery and permanently stops the session', async () => {
     const h = harness()
-    await expect(h.transport.read('mdlx')).rejects.toThrow('Timed out')
+    const rejected = expect(h.transport.read('mdlx')).rejects.toThrow('Timed out')
+    await vi.advanceTimersByTimeAsync(25)
+    await rejected
     expect(h.listeners.size).toBe(0)
     await expect(h.transport.read('mdlx')).rejects.toThrow('not safe')
     expect(h.send).toHaveBeenCalledTimes(1)

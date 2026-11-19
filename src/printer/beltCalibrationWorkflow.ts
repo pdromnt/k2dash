@@ -59,7 +59,7 @@ function forSide(
       phase: 'baseline',
       title: 'Capture the baseline without the jig',
       instruction:
-        'This saves the current unloaded sensor reading. Do not add the jig until the baseline is verified.',
+        'The wizard waits at least one second after the verified reset before it captures the unloaded reading. Leave both belts bare until the baseline is verified.',
       acknowledgment: 'Neither belt has a jig. My hands and tools are clear.',
       action: 'Capture baseline',
     },
@@ -69,7 +69,7 @@ function forSide(
       direction: 2,
       phase: 'loaded',
       title: `Fit the jig on the ${physicalSide} belt`,
-      instruction: `Fit the printed jig at the middle of the ${physicalSide} belt, following Creality’s instructions. Do not pull the belt forcefully: this can deform the strain gauge. Keep the other belt bare. Step back before capturing the loaded reading.`,
+      instruction: `Fit the printed jig at the middle of the ${physicalSide} belt, following Creality’s instructions. Do not pull the belt forcefully: this can deform the strain gauge. Keep the other belt bare and step back before capturing the reading. Do not home, jog, or run auto-tension with the jig installed.`,
       acknowledgment: `The jig is on the ${physicalSide} belt only. The printer is stationary and my hands and tools are clear.`,
       action: 'Capture loaded sample',
     },
