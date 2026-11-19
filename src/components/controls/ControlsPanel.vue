@@ -7,6 +7,7 @@ import { useToastStore } from '@/stores/toast'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
 import QuickControls from './QuickControls.vue'
 import BeltModuleCalibrationPreview from './BeltModuleCalibrationPreview.vue'
+import BeltModuleCalibrationLive from './BeltModuleCalibrationLive.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
 const ws = usePrinterWs()
@@ -15,10 +16,10 @@ const toast = useToastStore()
 const busy = ref(false)
 const distance = ref(10)
 const blocked = computed(
-  () => printer.isPrinting || printer.isPaused || !printer.connected,
+  () => printer.isPrinting || printer.isPaused || !printer.connected || ws.beltCalibrationActive.value,
 )
 const lockReason = computed(() =>
-  !printer.connected ? 'Printer disconnected' : 'Locked while printing',
+  !printer.connected ? 'Printer disconnected' : ws.beltCalibrationActive.value ? 'Belt calibration in progress' : 'Locked while printing',
 )
 const targets = reactive({ nozzle: '200', bed: '60', chamber: '0' })
 const heaters = computed(() => [
@@ -336,6 +337,7 @@ async function utility(command: UtilityCommand) {
         continuing.
       </p>
       <BeltModuleCalibrationPreview />
+      <BeltModuleCalibrationLive :disabled="blocked || busy" />
     </section>
   </div>
 </template>

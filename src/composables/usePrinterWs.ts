@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { isPreview, previewState, previewMaterials } from '@/utils/preview'
 import {
   parsePrintFilaments,
@@ -69,6 +69,27 @@ function clearPrintStarting() {
   clearTimeout(startTimer)
 }
 const connected = ref(false)
+const beltCalibrationActive = ref(false)
+let beltCalibrationOwner: symbol | null = null
+const BELT_STATUS_MAX_AGE_MS = STATUS_POLL_MS * 2
+const BELT_HEATER_KEYS = [
+  'nozzleTemp', 'targetNozzleTemp', 'bedTemp0', 'targetBedTemp0',
+  'boxTemp', 'targetBoxTemp',
+] as const
+type BeltHeaterKey = (typeof BELT_HEATER_KEYS)[number]
+const beltTelemetry = reactive(new Map<BeltHeaterKey, { value: number; seen: number }>())
+const beltStateSeen = ref<number>()
+
+function invalidateBeltCalibration() {
+  beltCalibrationOwner = null
+  beltCalibrationActive.value = false
+}
+
+function resetBeltTelemetry() {
+  beltStateSeen.value = undefined
+  beltTelemetry.clear()
+  invalidateBeltCalibration()
+}
 const subscribers = new Set<WsSubscriber>()
 const pendingResponses = new Set<PendingResponse>()
 let boxsTimer: ReturnType<typeof setInterval> | null = null
@@ -80,6 +101,19 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null
 // It's reactive so we can re-attempt matching when either the file list
 // or printFilename changes.
 const fileList = ref<Array<Record<string, unknown>>>([])
+
+function hasSafeBeltStatus(store: ReturnType<typeof usePrinterStore>): boolean {
+  const now = Date.now()
+  if (isPreview || !connected.value || ws?.readyState !== WebSocket.OPEN ||
+      starting || printStarting.value ||
+      !['idle', 'ready', 'complete'].includes(store.state) ||
+      beltStateSeen.value === undefined || now - beltStateSeen.value > BELT_STATUS_MAX_AGE_MS) return false
+  return BELT_HEATER_KEYS.every((key) => {
+    const field = beltTelemetry.get(key)
+    return field !== undefined && now - field.seen <= BELT_STATUS_MAX_AGE_MS &&
+      (key.startsWith('target') ? field.value === 0 : field.value >= 0 && field.value <= 40)
+  })
+}
 
 function backoff(): number {
   return Math.min(INITIAL_BACKOFF_MS * Math.pow(2, retryCount), MAX_BACKOFF_MS)
@@ -216,6 +250,7 @@ function connect() {
     ws = socket
 
     socket.addEventListener('open', () => {
+      resetBeltTelemetry()
       connected.value = true
       store.connected = true
       retryCount = 0
@@ -246,6 +281,7 @@ function connect() {
 
     socket.addEventListener('close', () => {
       if (ws !== socket) return
+      resetBeltTelemetry()
       ws = null
       connected.value = false
       store.connected = false
@@ -258,6 +294,7 @@ function connect() {
 
     socket.addEventListener('error', () => {
       if (ws !== socket) return
+      resetBeltTelemetry()
       connected.value = false
       store.connected = false
       store.wsActive = false
@@ -311,6 +348,19 @@ function parseStatus(msg: Record<string, unknown>) {
     store.state = msg.state as PrinterState
   }
 
+  if (Object.hasOwn(msg, 'deviceState') || Object.hasOwn(msg, 'state')) {
+    const rawState = msg.deviceState ?? msg.state
+    beltStateSeen.value = (typeof rawState === 'number' || typeof rawState === 'string') ? Date.now() : undefined
+  }
+  for (const key of BELT_HEATER_KEYS) {
+    if (!Object.hasOwn(msg, key)) continue
+    const raw = msg[key]
+    const value = typeof raw === 'number' || (typeof raw === 'string' && raw.trim())
+      ? Number(raw) : NaN
+    if (Number.isFinite(value)) beltTelemetry.set(key, { value, seen: Date.now() })
+    else beltTelemetry.delete(key)
+  }
+
   const isActive =
     store.state === 'printing' ||
     store.state === 'preparing' ||
@@ -360,6 +410,8 @@ function parseStatus(msg: Record<string, unknown>) {
   if (ct !== undefined) store.chamberTemp = ct
   const ctt = n(msg.targetBoxTemp)
   if (ctt !== undefined) store.chamberTarget = ctt
+
+  if (beltCalibrationOwner && !hasSafeBeltStatus(store)) invalidateBeltCalibration()
 
   const pp = n(msg.printProgress)
   // Creality's WS reports percentage points directly (1 means 1%, not
@@ -506,9 +558,39 @@ function matchEstimatedData(files: Array<Record<string, unknown>>) {
 export function usePrinterWs() {
   const store = usePrinterStore()
 
+  function canStartBeltCalibration(): boolean {
+    return hasSafeBeltStatus(store)
+  }
+
+  function requestBeltCalibrationStatus() {
+    send(statusRequest())
+  }
+
+  function acquireBeltCalibration() {
+    if (beltCalibrationOwner) throw new Error('Belt sensor calibration is already open')
+    if (!canStartBeltCalibration())
+      throw new Error('Waiting for fresh idle, cool printer status with all heaters off')
+    const owner = Symbol('belt calibration')
+    beltCalibrationOwner = owner
+    beltCalibrationActive.value = true
+    return {
+      async send(script: string) {
+        if (beltCalibrationOwner !== owner || !canStartBeltCalibration())
+          throw new Error('Belt calibration stopped: current printer status is not safe')
+        return sendNative(gcodeCommand(script), owner)
+      },
+      release() {
+        if (beltCalibrationOwner === owner) invalidateBeltCalibration()
+      },
+    }
+  }
+
   async function sendNative(
     message: CrealityMessage,
+    owner?: symbol,
   ): Promise<CommandTransport> {
+    if (beltCalibrationOwner && beltCalibrationOwner !== owner)
+      throw new Error('Finish or close belt sensor calibration before sending other printer actions')
     if (!send(message))
       throw new Error(
         isPreview
@@ -534,12 +616,15 @@ export function usePrinterWs() {
     return sendNative(cancelCommand())
   }
   function emergencyStop() {
+    invalidateBeltCalibration()
     return sendNative(gcodeCommand('M112'))
   }
   async function startPrint(
     path: string,
     options: PrintSource,
   ): Promise<CommandTransport> {
+    if (beltCalibrationOwner)
+      throw new Error('Close belt sensor calibration before starting a print')
     if (starting || printStarting.value || store.isPrinting || store.isPaused)
       throw new Error('A print is already active or starting')
     starting = true
@@ -587,6 +672,8 @@ export function usePrinterWs() {
   }
 
   async function deleteTimelapse(file: string) {
+    if (beltCalibrationOwner)
+      throw new Error('Close belt sensor calibration before deleting a timelapse')
     // Recent firmware acknowledges ctrlVideoFiles. Older versions do not,
     // so an acknowledgement timeout is non-fatal; the refreshed list is
     // the source of truth either way.
@@ -604,6 +691,10 @@ export function usePrinterWs() {
   return {
     connected,
     printStarting,
+    beltCalibrationActive,
+    canStartBeltCalibration,
+    requestBeltCalibrationStatus,
+    acquireBeltCalibration,
     connect,
     onMessage,
     sendGcodeCommand,

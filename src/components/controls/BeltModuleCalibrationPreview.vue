@@ -66,7 +66,7 @@ function advance() {
         </div>
       </template>
       <template v-else>
-        <p class="body-copy">No calibration ran and no printer settings changed. Live operation stays unavailable until command responses can be reliably tied to the correct stage and module on real hardware.</p>
+        <p class="body-copy">No calibration ran and no printer settings changed.</p>
         <div class="wizard-actions">
           <button class="btn" type="button" @click="showAt(0)">Restart simulation</button>
           <button class="btn btn-primary" type="button" @click="close">Close preview</button>

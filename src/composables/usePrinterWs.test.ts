@@ -251,3 +251,78 @@ describe('native printer transport', () => {
     ).toBe(false)
   })
 })
+
+describe('belt calibration live interlock', () => {
+  const idleCool = {
+    deviceState: 0,
+    nozzleTemp: '24.5',
+    bedTemp0: 26,
+    boxTemp: 27,
+    targetNozzleTemp: 0,
+    targetBedTemp0: 0,
+    targetBoxTemp: '0',
+  }
+
+  async function open() {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const printer = usePrinterWs()
+    printer.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    return { printer, socket }
+  }
+
+  it('requires complete, fresh real telemetry and refuses stale, hot, or malformed data', async () => {
+    const { printer, socket } = await open()
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    socket.fire('message', { deviceState: 0 })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    socket.fire('message', idleCool)
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    socket.fire('message', { targetBoxTemp: '0bad' })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    socket.fire('message', { ...idleCool, nozzleTemp: 45 })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    socket.fire('message', idleCool)
+    vi.advanceTimersByTime(10_001)
+    expect(() => printer.acquireBeltCalibration()).toThrow('fresh idle')
+  })
+
+  it('owns same-tab writes, invalidates on active jobs, and never resurrects an old lease', async () => {
+    const { printer, socket } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    await expect(printer.sendGcodeCommand('G28')).rejects.toThrow('calibration')
+    await expect(printer.startPrint('part.gcode', { source: 'spool' })).rejects.toThrow('calibration')
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).resolves.toBe('websocket')
+    socket.fire('message', { deviceState: 1 })
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    socket.fire('message', idleCool)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+    const second = printer.acquireBeltCalibration()
+    lease.release()
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    await printer.emergencyStop()
+    expect(socket.sent.at(-1)).toEqual({ method: 'set', params: { gcodeCmd: 'M112' } })
+    await expect(second.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
+
+  it('requires new status after reconnect and invalidates the prior connection owner', async () => {
+    const { printer, socket } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    socket.readyState = 3
+    socket.fire('close')
+    vi.advanceTimersByTime(2000)
+    const replacement = FakeSocket.instance
+    expect(replacement).not.toBe(socket)
+    replacement.readyState = 1
+    replacement.fire('open')
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    replacement.fire('message', idleCool)
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
+})
