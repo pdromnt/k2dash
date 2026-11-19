@@ -19,6 +19,13 @@
 
 Version 2.0 introduces a redesigned desktop and mobile workspace, explicit CFS print setup, and safe config-backup cleanup. See the [changelog](CHANGELOG.md) for the release notes.
 
+> [!TIP]
+> **Hardware-tested: K2 Plus belt tension calibration on stock firmware.**
+>
+> On a real K2 Plus running **V1.1.8.0**, K2Dash calibrated both XY belt tension sensors with the printed jig, verified the saved readings, and the printer passed the **belt step of its built-in self-test**. No service firmware or downgrade required.
+>
+> [Open the calibration guide ↓](#experimental-belt-tension-calibration)
+
 ## What it does
 
 - **Live print status** — progress, layers, ETA, elapsed time, temperatures, fans, filament use, filename, and thumbnail.
@@ -26,6 +33,7 @@ Version 2.0 introduces a redesigned desktop and mobile workspace, explicit CFS p
 - **Live camera** — WebRTC stream using the printer's native signaling service.
 - **Printer controls** — pause, resume, cancel, emergency stop, jog, homing, heaters, fans, and chamber light.
 - **Safe utilities** — filament load/unload, leveling, input shaping, belt and Z calibration, plus guarded PID calibration.
+- **Belt tension sensor calibration** — a separate, [hardware-tested wizard](#experimental-belt-tension-calibration) for the K2 Plus on stock firmware.
 - **File management** — upload, browse, rename, print, and delete G-code files.
 - **Configuration editor** — browse and edit printer configs; group timestamped backups separately and clean up older snapshots while keeping the latest.
 - **G-code console** — native Creality WebSocket commands, command history, and live Klipper output via Moonraker. `HELP` reads Klipper’s documented command list without executing G-code.
@@ -183,11 +191,11 @@ After either dashboard action, a banner explains that Creality may briefly repor
 
 **K2 Plus only.** The dashboard uses the printer’s reported model, not its configured name. For a detected K2 or K2 Pro, Maintenance shows the appropriate Creality wiki guide for manual belt tensioning instead of the experimental wizard.
 
-In **Printer controls → Maintenance → [EXPERIMENTAL] Belt Tension Calibration**, choose **Open wizard**. This floating dialog guides the separate, jig-based sensor procedure, not the existing one-button **Belt calibration** macro. It replaces the old rehearsal and inline live panels with a single workflow: preparation → right belt → left belt → final module verification → manual self-test.
+In **Printer controls → Maintenance → [EXPERIMENTAL] Belt Tension Calibration**, choose **Open wizard**. This floating dialog guides the separate, jig-based sensor procedure, not the existing one-button **Belt calibration** macro: preparation → right belt → left belt → final module verification → manual self-test.
 
 The wizard links to Creality’s guide, jig model, and video. It includes the optional normal-tension check (7.5 N ± 0.5 N), middle-of-belt placement, and warning against pulling forcefully while fitting the jig. The guide’s special firmware and hidden touchscreen menu describe Creality’s original service route, not prerequisites for K2Dash’s stock-firmware path. For a dashboard session with no printer traffic at all, inspect preparation at `http://localhost:5173/?preview=idle#/printer`; module operations stay disabled in preview.
 
-The wizard is an explicit opt-in for a stock K2 Plus. V1.1.8.0 is the current offline validation reference (the V1.1.8.01 download uses V1.1.8.0 internally). Older and newer versions may work, but are not guaranteed. Stop the wizard at any discrepancy. You are responsible for proceeding and for any resulting issues. The driver writes persistent module flash; K2Dash's transport and operator flow have been tested with fixtures, not on a real printer.
+**Hardware-tested on stock V1.1.8.0** (the V1.1.8.01 download reports V1.1.8.0 on the printer). Both sensors were calibrated, both saved readings were verified, and the printer passed the belt step of its manual self-test. The wizard remains experimental: older and newer firmware versions may work, but aren't confirmed. The procedure writes to the belt modules’ persistent memory. Stop on any discrepancy; you are responsible for proceeding and for any resulting issues.
 
 Follow [Creality's procedure and jig guide](https://wiki.creality.com/en/k2-flagship-series/k2-plus/belt-auto-tension-calibration) for physical setup; the wizard uses firmware commands in place of the service-firmware UI. Use **Check commands** to verify Klipper lists `BELT_MDL_INFO` and `BELT_MDL_CALI`. If needed, use **Turn heaters off** and wait for the temperature and target readings to confirm it’s safe to continue. With both belts bare and the printer clear, confirm the work area and choose **Home & park printer**. This sends homing and `BOX_MOVE_TO_SAFE_POS` with `M400` motion waits; a send is not proof of completion. Wait until the printer is completely still and personally confirm the service position before reading either module. Stop on an error or if parking is unconfirmed; don’t substitute guessed coordinates. The final self-test remains manual.
 
