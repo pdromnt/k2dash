@@ -8,7 +8,7 @@ web
 
 ## Users
 
-The printer owner monitoring and operating a Creality K2 Plus from a desktop browser or phone on the local network. Long-running jobs make accurate state and reliable controls important.
+Owners monitoring and operating Creality K2-series printers from a desktop browser or phone on the local network. Long-running jobs make accurate state and reliable controls important.
 
 ## Product Purpose
 

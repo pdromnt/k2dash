@@ -3,6 +3,8 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { usePrinterWs } from '@/composables/usePrinterWs'
 import { errMsg } from '@/utils/format'
+import { getGcodeHelp } from '@/api/moonraker'
+import { listenForKlipperOutput } from '@/api/klipperOutput'
 
 interface ConsoleMessage {
   id: number
@@ -23,6 +25,9 @@ export function useConsole() {
   const connected = ref(false)
   let msgId = 0
   let unsubscribe: (() => void) | null = null
+  let stopOutput: (() => void) | null = null
+  let receivingKlipperOutput = false
+  let readingHelp = false
 
   function addMessage(type: ConsoleMessage['type'], text: string) {
     messages.value.push({ id: msgId++, type, text, timestamp: Date.now() })
@@ -34,20 +39,33 @@ export function useConsole() {
   function connect() {
     if (unsubscribe) return // already connected
 
-    // Subscribe through the WS composable's pub/sub so we don't open a
-    // second message listener on the same socket.
+    // Some Creality firmwares also echo replies. Use those only until the
+    // Moonraker feed is connected, so mirrored replies don't print twice.
     unsubscribe = printerWs.onMessage((msg) => {
-      if (msg.gcodeRes) {
-        addMessage('recv', typeof msg.gcodeRes === 'string' ? msg.gcodeRes : JSON.stringify(msg.gcodeRes))
-      }
-      if (msg.gcode_response) {
-        addMessage('recv', msg.gcode_response as string)
+      if (receivingKlipperOutput) return
+      const reply = msg.gcodeRes ?? msg.gcode_response
+      if (typeof reply === 'string' && reply.trim()) addMessage('recv', reply)
+      else if (Array.isArray(reply)) {
+        const text = reply.filter((line): line is string => typeof line === 'string').join('\n')
+        if (text.trim()) addMessage('recv', text)
       }
     })
+    stopOutput = listenForKlipperOutput(
+      (text) => addMessage('recv', text),
+      (online) => {
+        receivingKlipperOutput = online
+        addMessage('system', online
+          ? 'Listening for live Klipper output.'
+          : 'Live Klipper output unavailable. Reconnecting; commands still use Creality’s connection.')
+      },
+    )
   }
 
   function disconnect() {
     if (unsubscribe) { unsubscribe(); unsubscribe = null }
+    stopOutput?.()
+    stopOutput = null
+    receivingKlipperOutput = false
     connected.value = false
   }
 
@@ -68,6 +86,26 @@ export function useConsole() {
     const command = cmd.trim()
     if (!command) return
     addMessage('send', command)
+
+    // Creality can run HELP without forwarding Klipper's output. Read the
+    // documented command list instead; no G-code is executed for this lookup.
+    if (command.toUpperCase() === 'HELP') {
+      if (readingHelp) return
+      readingHelp = true
+      addMessage('system', 'Reading Klipper command list…')
+      try {
+        const help = await getGcodeHelp()
+        const lines = Object.entries(help).sort(([a], [b]) => a.localeCompare(b))
+          .map(([name, description]) => `  ${name}: ${description}`)
+        addMessage('recv', ['Available extended commands:', ...lines].join('\n'))
+      } catch (error) {
+        const detail = errMsg(error)
+        addMessage('system', `Could not read the Klipper command list. Check Moonraker and try HELP again.${detail ? ` (${detail})` : ''}`)
+      } finally {
+        readingHelp = false
+      }
+      return
+    }
 
     try {
       await printerWs.sendGcodeCommand(command + '\n')

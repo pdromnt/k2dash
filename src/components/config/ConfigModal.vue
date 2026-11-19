@@ -15,7 +15,6 @@ import {
   getConfigFile,
   saveConfigFile,
   deleteConfigFile,
-  restartKlipper,
 } from '@/api/moonraker'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
@@ -35,6 +34,8 @@ import {
 import { tags } from '@lezer/highlight'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterRestart } from '@/composables/usePrinterRestart'
+import PrinterRestartNotice from '@/components/layout/PrinterRestartNotice.vue'
 import {
   cleanConfigBackups,
   isPrinterConfigBackup,
@@ -98,7 +99,8 @@ const klipperConfig = StreamLanguage.define({
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-const { printStarting } = usePrinterWs()
+const { printStarting, beltCalibrationActive } = usePrinterWs()
+const { blocked: restartBlocked, pending: restartPending, restart } = usePrinterRestart()
 
 // One row in the file tree. Extracted so sub-entry (indented) and
 // root-level (full-width) files share markup. The only difference is
@@ -219,6 +221,8 @@ const mutationsBlocked = computed(
     jobActive.value ||
     !printer.connected ||
     printStarting.value ||
+    beltCalibrationActive.value ||
+    restartPending.value ||
     cleaning.value ||
     saving.value,
 )
@@ -457,31 +461,18 @@ async function cancel() {
 }
 
 async function save() {
-  if (jobActive.value) return
   await saveFile()
 }
 
 async function saveAndRestart() {
-  if (!selected.value || jobActive.value) return
+  if (!selected.value || mutationsBlocked.value || restartBlocked.value) return
   const ok = await saveFile()
   if (!ok) return
-  if (jobActive.value) {
-    banner.show('Config saved, but restart skipped because a print started')
-    return
-  }
-  // Klipper restart kicks the printer offline briefly. Warn the user,
-  // then issue the restart. We close the editor regardless — the WS will
-  // disconnect and reconnect once Klipper is back.
-  banner.show('Restarting Klipper — printer will be briefly offline')
-  try {
-    await restartKlipper()
-  } catch (e) {
-    banner.show('File saved, but Klipper restart failed', errMsg(e))
-  }
+  await restart('host')
 }
 
 async function saveFile(): Promise<boolean> {
-  if (jobActive.value) return false
+  if (mutationsBlocked.value) return false
   const fp = selected.value || newFileName.value
   if (!fp || !changed.value) return false
   saving.value = true
@@ -708,6 +699,7 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <PrinterRestartNotice silent />
             <div class="flex-1 overflow-y-auto">
               <div v-if="loading" class="px-5 py-10 text-center">
                 <span class="spinner spinner-sm"></span>
@@ -888,7 +880,7 @@ onUnmounted(() => {
                   v-if="selected"
                   ref="restartBtn"
                   class="btn btn-sm"
-                  :disabled="!changed || saving || jobActive"
+                  :disabled="!changed || mutationsBlocked || restartBlocked"
                   @mouseenter="showRestartTip"
                   @mouseleave="hideTip"
                   @click="saveAndRestart"
@@ -900,9 +892,8 @@ onUnmounted(() => {
                   class="btn btn-primary btn-sm"
                   :disabled="
                     !changed ||
-                    saving ||
-                    (!selected && !newFileName) ||
-                    jobActive
+                    mutationsBlocked ||
+                    (!selected && !newFileName)
                   "
                   @mouseenter="showSaveTip"
                   @mouseleave="hideTip"

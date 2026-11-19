@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { CfsSlot, CfsUnit } from '@/printer/cfs'
+import { K2_PLUS_MODEL_ID, printerModelName } from '@/printer/crealityProtocol'
 export type { CfsSlot, CfsUnit } from '@/printer/cfs'
 
 export type PrinterState =
@@ -36,6 +37,9 @@ export interface TimelapseFile {
 
 export const usePrinterStore = defineStore('printer', () => {
   const state = ref<PrinterState>('unknown')
+  const modelId = ref('')
+  const modelName = computed(() => printerModelName(modelId.value))
+  const isK2Plus = computed(() => modelId.value === K2_PLUS_MODEL_ID)
   const printProgress = ref(0)
   const printFilename = ref('')
   const currentLayer = ref(0)
@@ -118,6 +122,9 @@ export const usePrinterStore = defineStore('printer', () => {
 
   return {
     state,
+    modelId,
+    modelName,
+    isK2Plus,
     printProgress,
     printFilename,
     currentLayer,

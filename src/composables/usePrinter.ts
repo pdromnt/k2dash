@@ -1,6 +1,6 @@
 import { watch } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
-import { HOST } from '@/utils/env'
+import { getUploadBaseUrl } from '@/utils/env'
 import { isPreview } from '@/utils/preview'
 
 // Native telemetry owns all status. This composable only manages the current
@@ -13,7 +13,7 @@ export function usePrinter() {
       if (isPreview) return
       store.thumbnailUrl =
         store.isPrinting || store.isPaused
-          ? `http://${HOST}:80/downloads/original/current_print_image.png?cb=${encodeURIComponent(store.printFilename || store.state)}`
+          ? `${getUploadBaseUrl()}/downloads/original/current_print_image.png?cb=${encodeURIComponent(store.printFilename || store.state)}`
           : ''
     },
     { immediate: true },

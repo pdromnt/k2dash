@@ -11,27 +11,37 @@ export const UPLOAD_PORT = import.meta.env.VITE_UPLOAD_PORT || '80'
 export const WEBCAM_PORT = import.meta.env.VITE_WEBCAM_PORT || '8000'
 export const WS_PORT = '9999'
 
+const proxied = import.meta.env.DEV || import.meta.env.VITE_PRINTER_PROXY === 'true'
+
 /**
- * Dev: routed through the Vite proxy (configured in vite.config.ts) to avoid CORS.
- * Prod: direct connection to the printer — requires the dashboard to be served
- *       from a host that can reach the printer on the LAN.
+ * Dev or proxy-enabled build: same-origin routes (also support HTTPS).
+ * Default production build: direct LAN connections to the printer.
  */
 export function getMoonrakerBaseUrl(): string {
-  if (import.meta.env.DEV) return '/api/moonraker'
+  if (proxied) return '/api/moonraker'
   return `http://${HOST}:${API_PORT}`
 }
 
+export function getMoonrakerOutputUrl(): string {
+  if (!proxied) return `ws://${HOST}:${API_PORT}/websocket`
+  const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${scheme}//${window.location.host}/api/moonraker/websocket`
+}
+
 export function getUploadBaseUrl(): string {
-  if (import.meta.env.DEV) return '/api/printer-upload'
+  if (proxied) return '/api/printer-upload'
   return `http://${HOST}:${UPLOAD_PORT}`
 }
 
 export function getWebcamBaseUrl(): string {
-  if (import.meta.env.DEV) return '/api/printer-camera'
+  if (proxied) return '/api/printer-camera'
   return `http://${HOST}:${WEBCAM_PORT}`
 }
 
 export function getWsUrl(): string {
-  if (import.meta.env.DEV) return `ws://${window.location.host}/api/printer-ws`
+  if (proxied) {
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${scheme}//${window.location.host}/api/printer-ws`
+  }
   return `ws://${HOST}:${WS_PORT}`
 }

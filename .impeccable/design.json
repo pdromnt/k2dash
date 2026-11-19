@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-05T01:55:26Z",
+  "generatedAt": "2026-11-19T19:07:00Z",
   "title": "Design System: K2Dash",
   "extensions": {
     "colorMeta": {
@@ -412,6 +412,21 @@
         "name": "The Plain Label Rule",
         "body": "Use short, literal operational labels rather than promotional language or invented section slogans.",
         "section": "typography"
+      },
+      {
+        "name": "Axis and heater controls",
+        "body": "Keep axis-specific homing beneath the corresponding jog controls. Separate the live reading from the heater target input: place the tabular temperature to the right of Set.",
+        "section": "components"
+      },
+      {
+        "name": "Belt tension wizard",
+        "body": "Keep progress, close/stop, and emergency stop outside its scrolling body. Focus the stage heading on transitions; cancellation during a session opens recovery guidance rather than dismissing it.",
+        "section": "components"
+      },
+      {
+        "name": "App mark",
+        "body": "Use the same K2Dash mark in the app bar, favicon, and install assets; keep the manufacturer logo out of dashboard chrome.",
+        "section": "components"
       }
     ],
     "dos": [

@@ -5,6 +5,8 @@ import { usePrinterWs } from '@/composables/usePrinterWs'
 import { usePrinter } from '@/composables/usePrinter'
 import { isPreview, previewState } from '@/utils/preview'
 import AppBanner from './AppBanner.vue'
+import PrinterRestartNotice from './PrinterRestartNotice.vue'
+import { restartNotice } from '@/composables/usePrinterRestart'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import PrintActions from '@/components/controls/PrintActions.vue'
@@ -44,13 +46,13 @@ function previewUrl(state: string) {
     <ConfirmDialog />
     <header class="app-header">
       <RouterLink to="/" class="app-brand" aria-label="K2Dash overview"
-        ><AppIcon name="printer" :size="24" /><span
+        ><img src="/k2dash.svg" width="26" height="26" alt="" /><span
           >K2<strong>Dash</strong></span
         ></RouterLink
       >
       <span class="header-divider" />
       <div class="machine-name">
-        <strong>K2 Plus</strong
+        <strong>{{ printer.modelName }}</strong
         ><span>{{ isPreview ? 'Sample data' : host }}</span>
       </div>
       <div class="header-actions">
@@ -104,7 +106,8 @@ function previewUrl(state: string) {
       </div>
     </div>
     <AppBanner />
-    <div v-if="!printer.connected" class="connection-notice" role="status">
+    <PrinterRestartNotice />
+    <div v-if="!printer.connected && !restartNotice" class="connection-notice" role="status">
       <AppIcon name="activity" :size="16" />Reconnecting to the printer.
       Readings are unavailable or may be out of date.
     </div>

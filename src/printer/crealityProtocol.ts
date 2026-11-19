@@ -33,6 +33,19 @@ export type CrealityMessage =
   | { method: 'get'; params: CrealityGetParams }
   | { method: 'set'; params: CrealitySetParams }
 
+export const K2_PLUS_MODEL_ID = 'F008'
+export const K2_PRO_MODEL_ID = 'F012'
+export const K2_MODEL_ID = 'F021'
+const printerModelNames = new Map([
+  [K2_PLUS_MODEL_ID, 'K2 Plus'],
+  [K2_PRO_MODEL_ID, 'K2 Pro'],
+  [K2_MODEL_ID, 'K2'],
+])
+
+export function printerModelName(id: string): string {
+  return printerModelNames.get(id) ?? 'Printer'
+}
+
 export type CrealityFan = 'part' | 'case' | 'side'
 
 const CREALITY_FAN_PINS: Record<CrealityFan, number> = {

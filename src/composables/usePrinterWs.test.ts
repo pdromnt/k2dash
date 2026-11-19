@@ -50,6 +50,28 @@ afterEach(() => {
 })
 
 describe('native printer transport', () => {
+  it('uses the native model ID and preserves it across partial status frames', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    usePrinterWs().connect()
+    const store = usePrinterStore()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    expect(store.modelName).toBe('Printer')
+    socket.fire('message', { model: ' f008 ' })
+    socket.fire('message', { nozzleTemp: 30 })
+    socket.fire('message', { model: null })
+    expect(store.modelName).toBe('K2 Plus')
+    socket.fire('message', { model: 'F012' })
+    expect(store.modelName).toBe('K2 Pro')
+    socket.fire('message', { model: 'F021' })
+    expect(store.modelName).toBe('K2')
+    socket.fire('message', { model: 'F999' })
+    expect(store.modelName).toBe('Printer')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('requests native file metadata and preserves the used logical filament index', async () => {
     const { usePrinterWs } = await import('./usePrinterWs')
     const client = usePrinterWs()
@@ -249,5 +271,241 @@ describe('native printer transport', () => {
           (message.params as Record<string, unknown>).multiColorPrint,
       ),
     ).toBe(false)
+  })
+})
+
+describe('belt calibration live interlock', () => {
+  const idleCool = {
+    model: 'F008',
+    deviceState: 0,
+    nozzleTemp: '24.5',
+    bedTemp0: 26,
+    boxTemp: 27,
+    targetNozzleTemp: 0,
+    targetBedTemp0: 0,
+    targetBoxTemp: '0',
+  }
+  const safetyStatus = {
+    webhooks: { state: 'ready' },
+    print_stats: { state: 'standby' },
+    virtual_sdcard: { is_active: false },
+    extruder: { temperature: 25, target: 0 },
+    heater_bed: { temperature: 26, target: 0 },
+    'heater_generic chamber_heater': { temperature: 27, target: 0 },
+  }
+
+  function mockSafetyStatus(overrides = {}) {
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      result: { status: { ...safetyStatus, ...overrides } },
+    }))
+  }
+
+  async function open() {
+    mockSafetyStatus()
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const printer = usePrinterWs()
+    printer.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    const monitor = printer.monitorBeltCalibrationStatus()
+    await vi.advanceTimersByTimeAsync(0)
+    return { printer, socket, monitor }
+  }
+
+  it('allows heater shutdown while hot but sends home and park only when cold and idle', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', { ...idleCool, nozzleTemp: 70, targetNozzleTemp: 150 })
+    mockSafetyStatus({ extruder: { temperature: 70, target: 150 } })
+    await monitor.refresh()
+    socket.sent = []
+    expect(printer.canTurnOffBeltHeaters()).toBe(true)
+    await expect(printer.prepareBeltCalibration('home-and-park')).rejects.toThrow('cool')
+    expect(socket.sent).toEqual([])
+    await printer.prepareBeltCalibration('heaters-off')
+    socket.fire('message', idleCool)
+    mockSafetyStatus()
+    await monitor.refresh()
+    await printer.prepareBeltCalibration('home-and-park')
+    expect(socket.sent).toEqual([
+      { method: 'set', params: { gcodeCmd: 'M104 S0\nM140 S0\nM141 S0' } },
+      { method: 'set', params: { gcodeCmd: 'G28\nM400\nBOX_MOVE_TO_SAFE_POS\nM400' } },
+    ])
+    expect(vi.mocked(fetch).mock.calls.every(([url, options]) =>
+      String(url).includes('/printer/objects/query?') && options?.method === undefined,
+    )).toBe(true)
+  })
+
+  it('refuses preparation while printing, with stale telemetry, or during a live calibration', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', { ...idleCool, deviceState: 1 })
+    socket.sent = []
+    await expect(printer.prepareBeltCalibration('heaters-off')).rejects.toThrow('idle')
+    socket.fire('message', idleCool)
+    vi.setSystemTime(Date.now() + 10_001)
+    await expect(printer.prepareBeltCalibration('home-and-park')).rejects.toThrow('idle')
+    socket.fire('message', idleCool)
+    await monitor.refresh()
+    const lease = printer.acquireBeltCalibration()
+    await expect(printer.prepareBeltCalibration('heaters-off')).rejects.toThrow('calibration')
+    lease.release()
+    expect(socket.sent).toEqual([])
+  })
+
+  it.each(['', 'F021', 'F012', 'F999'])('rejects belt calibration unless a K2 Plus is detected (%s)', async (model) => {
+    const { printer, socket } = await open()
+    socket.fire('message', { ...idleCool, model })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    expect(() => printer.acquireBeltCalibration()).toThrow('requires a detected K2 Plus')
+  })
+
+  it('invalidates a calibration lease if the printer reports a different model', async () => {
+    const { printer, socket } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    socket.fire('message', { model: 'F012' })
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
+
+  it('requires a complete, fresh safety snapshot and refuses stale, hot, or malformed measurements', async () => {
+    const { printer, socket, monitor } = await open()
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    socket.fire('message', { model: 'F008', deviceState: 0 })
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    socket.fire('message', { targetBoxTemp: '0bad' })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    mockSafetyStatus({ 'heater_generic chamber_heater': undefined })
+    await monitor.refresh()
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    mockSafetyStatus()
+    await monitor.refresh()
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    socket.fire('message', { ...idleCool, nozzleTemp: 45 })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    await monitor.refresh()
+    vi.setSystemTime(Date.now() + 5_001)
+    expect(() => printer.acquireBeltCalibration()).toThrow('fresh idle')
+  })
+
+  it('stays available when Creality only sends temperature deltas for an unchanged idle printer', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    await vi.advanceTimersByTimeAsync(12_000)
+    socket.fire('message', { nozzleTemp: '25.2', bedTemp0: '26.4' })
+    expect(printer.canTurnOffBeltHeaters()).toBe(true)
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    const lease = printer.acquireBeltCalibration()
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('Disconnected'))
+    await monitor.refresh()
+    expect(printer.canTurnOffBeltHeaters()).toBe(false)
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+    monitor.stop()
+    vi.mocked(fetch).mockClear()
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('refuses preparation if Moonraker reports an active job despite idle Creality status', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    mockSafetyStatus({ virtual_sdcard: { is_active: true } })
+    await monitor.refresh()
+    expect(printer.canTurnOffBeltHeaters()).toBe(false)
+    await expect(printer.prepareBeltCalibration('heaters-off')).rejects.toThrow('idle')
+    expect(socket.sent.some((msg) => msg.method === 'set')).toBe(false)
+  })
+
+  it('does not restore a cool state from a snapshot requested before an unsafe native update', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    let complete!: (response: Response) => void
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { complete = resolve }))
+    const refresh = monitor.refresh()
+    socket.fire('message', { targetBedTemp0: 60 })
+    complete(Response.json({ result: { status: safetyStatus } }))
+    await refresh
+    expect(printer.canTurnOffBeltHeaters()).toBe(true)
+    expect(printer.canStartBeltCalibration()).toBe(false)
+  })
+
+  it('owns same-tab writes, invalidates on active jobs, and never resurrects an old lease', async () => {
+    const { printer, socket } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    await expect(printer.sendGcodeCommand('G28')).rejects.toThrow('calibration')
+    await expect(printer.startPrint('part.gcode', { source: 'spool' })).rejects.toThrow('calibration')
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).resolves.toBe('websocket')
+    socket.fire('message', { deviceState: 1 })
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    socket.fire('message', idleCool)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+    const second = printer.acquireBeltCalibration()
+    lease.release()
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    await printer.emergencyStop()
+    expect(socket.sent.at(-1)).toEqual({ method: 'set', params: { gcodeCmd: 'M112' } })
+    await expect(second.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
+
+  it('requires new status after reconnect and invalidates the prior connection owner', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    socket.readyState = 3
+    socket.fire('close')
+    vi.advanceTimersByTime(2000)
+    const replacement = FakeSocket.instance
+    expect(replacement).not.toBe(socket)
+    replacement.readyState = 1
+    replacement.fire('open')
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    const { model, ...statusOnly } = idleCool
+    replacement.fire('message', statusOnly)
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    replacement.fire('message', { model })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    await monitor.refresh()
+    expect(printer.canStartBeltCalibration()).toBe(true)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
+
+  it('keeps the command lock through a disconnect only between steps and requires fresh telemetry', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    lease.waitForNextStep()
+    socket.readyState = 3
+    socket.fire('close')
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    expect(lease.beginStep()).toBe(false)
+    await expect(printer.sendGcodeCommand('G28')).rejects.toThrow('calibration')
+    vi.advanceTimersByTime(2000)
+    const replacement = FakeSocket.instance
+    replacement.readyState = 1
+    replacement.fire('open')
+    replacement.fire('message', idleCool)
+    expect(lease.beginStep()).toBe(false)
+    await monitor.refresh(true)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('not safe')
+    expect(lease.beginStep()).toBe(true)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).resolves.toBe('websocket')
+  })
+
+  it('invalidates a waiting session on an unsafe snapshot, not on a missing snapshot', async () => {
+    const { printer, socket, monitor } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    lease.waitForNextStep()
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('Throttled'))
+    await monitor.refresh(true)
+    expect(printer.beltCalibrationActive.value).toBe(true)
+    expect(lease.beginStep()).toBe(false)
+    mockSafetyStatus({ extruder: { temperature: 50, target: 0 } })
+    await monitor.refresh()
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    expect(lease.beginStep()).toBe(false)
   })
 })

@@ -5,19 +5,22 @@ import { usePrinterWs } from '@/composables/usePrinterWs'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
+import { usePrinterRestart } from '@/composables/usePrinterRestart'
 import QuickControls from './QuickControls.vue'
+import BeltModuleCalibrationLive from './BeltModuleCalibrationLive.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
 const ws = usePrinterWs()
+const { blocked: restartBlocked, pending: restartPending, restart } = usePrinterRestart()
 const banner = useBannerStore()
 const toast = useToastStore()
 const busy = ref(false)
 const distance = ref(10)
 const blocked = computed(
-  () => printer.isPrinting || printer.isPaused || !printer.connected,
+  () => printer.isPrinting || printer.isPaused || !printer.connected || ws.beltCalibrationActive.value || restartPending.value,
 )
 const lockReason = computed(() =>
-  !printer.connected ? 'Printer disconnected' : 'Locked while printing',
+  !printer.connected ? 'Printer disconnected' : restartPending.value ? 'Restart requested' : ws.beltCalibrationActive.value ? 'Belt calibration in progress' : 'Locked while printing',
 )
 const targets = reactive({ nozzle: '200', bed: '60', chamber: '0' })
 const heaters = computed(() => [
@@ -141,6 +144,17 @@ async function utility(command: UtilityCommand) {
   }
   await run(command.gcode, command.label)
 }
+
+async function confirmFirmwareRestart() {
+  if (restartBlocked.value || busy.value) return
+  const confirmed = await requestConfirmation({
+    title: 'Restart printer firmware?',
+    message: 'Restarts Klipper and its controller boards, not the whole printer. Wait until the printer is ready before using it again.',
+    confirmLabel: 'Restart firmware',
+    tone: 'warning',
+  })
+  if (confirmed && !busy.value) await restart('firmware')
+}
 </script>
 <template>
   <div class="controls-workspace">
@@ -198,6 +212,11 @@ async function utility(command: UtilityCommand) {
               >
                 Y−</button
               ><span />
+              <button
+                class="btn btn-sm home-xy"
+                :disabled="blocked || busy"
+                @click="run('G28 X Y', 'Home X/Y')"
+              >Home X/Y</button>
             </div>
             <div class="z-pad">
               <button
@@ -213,22 +232,12 @@ async function utility(command: UtilityCommand) {
               >
                 Z−
               </button>
+              <button
+                class="btn btn-sm"
+                :disabled="blocked || busy"
+                @click="run('G28 Z', 'Home Z')"
+              >Home Z</button>
             </div>
-          </div>
-          <div class="homing-actions">
-            <button
-              class="btn btn-sm"
-              :disabled="blocked || busy"
-              @click="run('G28 X Y', 'Home X/Y')"
-            >
-              Home X/Y</button
-            ><button
-              class="btn btn-sm"
-              :disabled="blocked || busy"
-              @click="run('G28 Z', 'Home Z')"
-            >
-              Home Z
-            </button>
           </div>
           <dl class="control-position">
             <div v-for="axis in ['x', 'y', 'z'] as const" :key="axis">
@@ -250,12 +259,7 @@ async function utility(command: UtilityCommand) {
             class="heater-form"
             @submit.prevent="temperature(h)"
           >
-            <label :for="'heater-' + h.id"
-              >{{ h.label
-              }}<span
-                >{{ printer.connected ? h.current.toFixed(1) : '—' }}°C</span
-              ></label
-            >
+            <label :for="'heater-' + h.id">{{ h.label }}</label>
             <div>
               <input
                 :id="'heater-' + h.id"
@@ -269,6 +273,9 @@ async function utility(command: UtilityCommand) {
               ><button class="btn btn-sm" :disabled="blocked || busy">
                 Set
               </button>
+              <span class="heater-current" :aria-label="'Current ' + h.label.toLowerCase() + ' temperature'">
+                {{ printer.connected ? `${h.current.toFixed(1)}°C` : '—' }}
+              </span>
             </div>
           </form>
           <button
@@ -334,6 +341,13 @@ async function utility(command: UtilityCommand) {
         Calibration heats or moves the printer. Review the confirmation before
         continuing.
       </p>
+      <BeltModuleCalibrationLive :disabled="blocked || busy" />
+      <div class="firmware-restart-row">
+        <p>Reload Klipper and reset the controller boards without power-cycling the printer.</p>
+        <button class="btn btn-warn" type="button" :disabled="restartBlocked || busy" @click="confirmFirmwareRestart">
+          {{ restartPending ? 'Restart requested…' : 'Firmware restart' }}
+        </button>
+      </div>
     </section>
   </div>
 </template>
