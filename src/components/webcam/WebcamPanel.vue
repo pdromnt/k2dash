@@ -37,7 +37,7 @@ watch(() => printer.connected, autoConnect)
           ><span class="status-dot bg-current" />Streaming</span
         ><button
           class="btn"
-          :class="{ 'btn-ghost btn-sm': expanded }"
+          type="button"
           :aria-expanded="expanded"
           @click="toggle"
         >
@@ -86,7 +86,7 @@ watch(() => printer.connected, autoConnect)
     </div>
     <div v-if="connected || connecting" class="camera-footer">
       <span>Local WebRTC stream</span
-      ><button class="btn btn-ghost btn-sm" @click="disconnect">
+      ><button class="btn" type="button" @click="disconnect">
         Stop stream
       </button>
     </div>

@@ -63,8 +63,8 @@ onMounted(() => {
 
 <template>
   <div class="card-panel min-h-[520px]">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <div class="t-title">Console</div>
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2">
@@ -91,7 +91,7 @@ onMounted(() => {
           </span>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm" @click="clear">Clear</button>
+      <button class="btn shrink-0" type="button" @click="clear">Clear</button>
     </div>
 
     <!-- Terminal -->

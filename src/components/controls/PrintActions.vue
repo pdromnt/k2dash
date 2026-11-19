@@ -75,7 +75,8 @@ async function act(action: 'pause' | 'resume' | 'cancel' | 'stop') {
     </button>
     <button
       v-if="!hideEmergency"
-      class="btn btn-ghost stop-button"
+      class="btn btn-danger stop-button"
+      type="button"
       :disabled="busy || !printer.connected"
       @click="act('stop')"
       title="Immediately halt the printer"

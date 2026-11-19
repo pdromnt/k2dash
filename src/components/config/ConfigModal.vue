@@ -592,7 +592,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button class="btn btn-ghost btn-sm" :disabled="cleaning" @click="toggle">
+  <button class="btn" type="button" :disabled="cleaning" @click="toggle">
     Config
   </button>
 

@@ -494,9 +494,12 @@ textarea {
     gap: 8px;
     align-items: center;
   }
-  .stop-button {
-    color: var(--red);
-    font-size: 11px;
+  .stop-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--red) 26%, var(--bg-card));
+    border-color: var(--red);
+  }
+  .stop-button:active:not(:disabled) {
+    background: color-mix(in srgb, var(--red) 32%, var(--bg-card));
   }
   .job-progress {
     margin-top: 20px;
@@ -1559,18 +1562,21 @@ textarea {
     gap: 8px;
   }
   .header-actions .print-actions {
-    padding-left: 6px;
+    padding: 0;
+    border-left: 0;
   }
   .header-actions .stop-button {
-    min-width: 36px;
-    min-height: 36px;
-    padding: 0;
+    gap: 5px;
   }
-  .header-actions .stop-button .action-label {
-    display: none;
+  .header-actions .stop-button svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
   }
   .header-actions .btn {
-    font-size: 10px;
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 11px;
   }
   .connection-state {
     font-size: 10px;
@@ -1729,6 +1735,10 @@ textarea {
   }
   .camera-panel {
     padding: 15px;
+  }
+  .camera-toolbar .btn,
+  .camera-footer .btn {
+    min-height: 44px;
   }
   .camera-frame {
     min-height: 190px;
@@ -1943,6 +1953,11 @@ textarea {
   }
   .header-actions {
     gap: 4px;
+  }
+  .header-actions .stop-button {
+    max-inline-size: 90px;
+    white-space: normal;
+    line-height: 1.15;
   }
   .temperature-marker {
     display: none;

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Give Config, camera actions, Console Clear, and Emergency stop visible button styles on desktop and mobile.
+
 - Keep belt calibration on the current step with controls locked while reconnecting between operations, recheck before continuing, and remove the checkbox flash when advancing.
 - Read belt module replies from Klipper’s live output and stop if that connection drops.
 - Keep the belt wizard’s idle/temperature checks current when Creality only sends changed values.
