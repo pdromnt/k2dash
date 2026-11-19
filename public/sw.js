@@ -3,7 +3,7 @@
 // Navigations are network-first so a deploy is visible on the next reload.
 // Hashed static assets are cache-first. Printer traffic is never cached.
 
-const CACHE = 'k2dash-v4'
+const CACHE = 'k2dash-v5'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -11,7 +11,9 @@ self.addEventListener('install', (event) => {
       return cache.addAll([
         '/',
         '/index.html',
-        '/creality.png',
+        '/k2dash.svg',
+        '/k2dash-192.png',
+        '/k2dash-512.png',
         '/manifest.json',
       ])
     })
@@ -24,7 +26,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
+        keys.filter((k) => k.startsWith('k2dash-v') && k !== CACHE).map((k) => caches.delete(k))
       )
     })
   )
@@ -51,17 +53,18 @@ self.addEventListener('fetch', (event) => {
             .then((cache) => cache.put('/index.html', copy))
             .then(() => response)
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(async () => (await caches.match('/index.html', { cacheName: CACHE })) || Response.error())
     )
     return
   }
 
-  // Cache-first is safe for Vite's content-hashed JS/CSS/font assets.
+  // Only immutable build assets use cache-first. The manifest and icons can change.
+  if (!url.pathname.startsWith('/assets/')) return
   event.respondWith(
     caches.open(CACHE).then((cache) => {
       return cache.match(event.request).then((cached) => cached ||
-        fetch(event.request).then((response) => {
-          if (response.ok) cache.put(event.request, response.clone())
+        fetch(event.request).then(async (response) => {
+          if (response.ok) await cache.put(event.request, response.clone())
           return response
         })
       )

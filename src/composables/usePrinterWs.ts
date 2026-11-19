@@ -18,6 +18,7 @@ import {
   hasTimelapseDeleteResult,
   hasTimelapseList,
   initialStateRequest,
+  K2_PLUS_MODEL_ID,
   lightCommand,
   normalizeCrealityLayer,
   normalizeCrealityProgress,
@@ -104,7 +105,7 @@ const fileList = ref<Array<Record<string, unknown>>>([])
 
 function hasSafeBeltStatus(store: ReturnType<typeof usePrinterStore>): boolean {
   const now = Date.now()
-  if (isPreview || !connected.value || ws?.readyState !== WebSocket.OPEN ||
+  if (isPreview || !store.isK2Plus || !connected.value || ws?.readyState !== WebSocket.OPEN ||
       starting || printStarting.value ||
       !['idle', 'ready', 'complete'].includes(store.state) ||
       beltStateSeen.value === undefined || now - beltStateSeen.value > BELT_STATUS_MAX_AGE_MS) return false
@@ -205,6 +206,7 @@ function connect() {
     const store = usePrinterStore()
     const materials = parseCfsSnapshot(previewMaterials())!
     store.$patch({
+      modelId: previewState === 'offline' ? '' : K2_PLUS_MODEL_ID,
       connected: previewState !== 'offline',
       wsActive: previewState !== 'offline',
       state:
@@ -251,6 +253,7 @@ function connect() {
 
     socket.addEventListener('open', () => {
       resetBeltTelemetry()
+      store.modelId = ''
       connected.value = true
       store.connected = true
       retryCount = 0
@@ -311,6 +314,9 @@ function connect() {
 
 function parseStatus(msg: Record<string, unknown>) {
   const store = usePrinterStore()
+  if (typeof msg.model === 'string' && msg.model.trim()) {
+    store.modelId = msg.model.trim().toUpperCase()
+  }
   if (
     msg.cfsConnect === 0 ||
     msg.cfsConnect === 1 ||
@@ -568,6 +574,7 @@ export function usePrinterWs() {
 
   function acquireBeltCalibration() {
     if (beltCalibrationOwner) throw new Error('Belt sensor calibration is already open')
+    if (!store.isK2Plus) throw new Error('Belt tension calibration requires a detected K2 Plus')
     if (!canStartBeltCalibration())
       throw new Error('Waiting for fresh idle, cool printer status with all heaters off')
     const owner = Symbol('belt calibration')

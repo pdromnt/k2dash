@@ -14,7 +14,7 @@ class ApiError extends Error {
 
 const REQUEST_TIMEOUT_MS = 10000
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   if (isPreview) {
     if (options.method && options.method !== 'GET')
       throw new Error('Printer actions are disabled in preview')
@@ -24,7 +24,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const resp = await fetch(url, {
     ...options,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   })
 
   if (!resp.ok) {
@@ -44,15 +44,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  get<T>(path: string) {
-    return request<T>(path)
+  get<T>(path: string, options: { timeoutMs?: number; cache?: RequestCache } = {}) {
+    return request<T>(path, { cache: options.cache }, options.timeoutMs)
   },
-  post<T>(path: string, body?: unknown) {
+  post<T>(path: string, body?: unknown, timeoutMs?: number) {
     return request<T>(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-    })
+    }, timeoutMs)
   },
   delete<T>(path: string) {
     return request<T>(path, { method: 'DELETE' })

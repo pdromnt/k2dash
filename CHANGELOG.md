@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Show detected K2-series model names in the header and offer the experimental belt tension wizard only on a detected K2 Plus. K2 and K2 Pro get their manual belt-tensioning guide.
+- Show a temporary Klipper restart banner that explains transient XS3000 warnings and reports unconfirmed recovery after 30 seconds.
+- Add a K2Dash nozzle mark for the navbar, favicon, and correctly sized PWA icons. Document secure install and same-origin proxy options.
+- Give config restarts more time to acknowledge and distinguish unconfirmed restarts from failed saves. Add a confirmed Firmware restart action in Maintenance.
+- Group homing with its jog axis and align live heater readings beside Set.
+- Replace the belt-calibration rehearsal and inline live panel with one floating **[EXPERIMENTAL] Belt Tension Calibration** wizard, retaining per-write confirmations and adding Creality’s preparation, jig, and recovery guidance.
 - Group connected CFS units by hardware ID with independent readings; show the external spool separately and clear removed/disconnected units.
 - Group print-setup slots by CFS and revalidate connected destinations before each native start step.
 - Add multi-CFS, spool-only, and empty-CFS previews and regression coverage.

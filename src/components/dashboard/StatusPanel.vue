@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
+import { showXs3000AsRestart } from '@/composables/usePrinterRestart'
 import {
   fmtDur,
   fmtFilamentMeters,
@@ -45,7 +46,8 @@ const finishTime = computed(() =>
 const errorInfo = computed(() => printerError(printer.errorCode))
 const errorVisible = computed(
   () =>
-    printer.errorCode !== 0 && printer.dismissedErrorCode !== printer.errorCode,
+    printer.errorCode !== 0 && printer.dismissedErrorCode !== printer.errorCode &&
+    !(printer.errorCode === 3000 && showXs3000AsRestart.value),
 )
 const imageFailed = ref(false),
   imageAttempt = ref(0)

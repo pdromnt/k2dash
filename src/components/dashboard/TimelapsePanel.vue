@@ -6,7 +6,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { fmtSize, fmtDate, fmtDur, splitPath } from '@/utils/format'
 import { isPreview } from '@/utils/preview'
-import { HOST } from '@/utils/env'
+import { getUploadBaseUrl } from '@/utils/env'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
 
 const printer = usePrinterStore()
@@ -25,7 +25,7 @@ function videoFilename(f: TimelapseFile) {
 
 function videoUrl(f: TimelapseFile) {
   if (isPreview) return ''
-  return `http://${HOST}:80/downloads/video/${encodeURIComponent(videoFilename(f))}`
+  return `${getUploadBaseUrl()}/downloads/video/${encodeURIComponent(videoFilename(f))}`
 }
 
 function displayName(f: TimelapseFile) {

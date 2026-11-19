@@ -50,6 +50,28 @@ afterEach(() => {
 })
 
 describe('native printer transport', () => {
+  it('uses the native model ID and preserves it across partial status frames', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    usePrinterWs().connect()
+    const store = usePrinterStore()
+    const socket = FakeSocket.instance
+    socket.readyState = 1
+    socket.fire('open')
+    expect(store.modelName).toBe('Printer')
+    socket.fire('message', { model: ' f008 ' })
+    socket.fire('message', { nozzleTemp: 30 })
+    socket.fire('message', { model: null })
+    expect(store.modelName).toBe('K2 Plus')
+    socket.fire('message', { model: 'F012' })
+    expect(store.modelName).toBe('K2 Pro')
+    socket.fire('message', { model: 'F021' })
+    expect(store.modelName).toBe('K2')
+    socket.fire('message', { model: 'F999' })
+    expect(store.modelName).toBe('Printer')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('requests native file metadata and preserves the used logical filament index', async () => {
     const { usePrinterWs } = await import('./usePrinterWs')
     const client = usePrinterWs()
@@ -254,6 +276,7 @@ describe('native printer transport', () => {
 
 describe('belt calibration live interlock', () => {
   const idleCool = {
+    model: 'F008',
     deviceState: 0,
     nozzleTemp: '24.5',
     bedTemp0: 26,
@@ -272,6 +295,22 @@ describe('belt calibration live interlock', () => {
     socket.fire('open')
     return { printer, socket }
   }
+
+  it.each(['', 'F021', 'F012', 'F999'])('rejects belt calibration unless a K2 Plus is detected (%s)', async (model) => {
+    const { printer, socket } = await open()
+    socket.fire('message', { ...idleCool, model })
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    expect(() => printer.acquireBeltCalibration()).toThrow('requires a detected K2 Plus')
+  })
+
+  it('invalidates a calibration lease if the printer reports a different model', async () => {
+    const { printer, socket } = await open()
+    socket.fire('message', idleCool)
+    const lease = printer.acquireBeltCalibration()
+    socket.fire('message', { model: 'F012' })
+    expect(printer.beltCalibrationActive.value).toBe(false)
+    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
+  })
 
   it('requires complete, fresh real telemetry and refuses stale, hot, or malformed data', async () => {
     const { printer, socket } = await open()
@@ -321,7 +360,10 @@ describe('belt calibration live interlock', () => {
     replacement.readyState = 1
     replacement.fire('open')
     expect(printer.canStartBeltCalibration()).toBe(false)
-    replacement.fire('message', idleCool)
+    const { model, ...statusOnly } = idleCool
+    replacement.fire('message', statusOnly)
+    expect(printer.canStartBeltCalibration()).toBe(false)
+    replacement.fire('message', { model })
     expect(printer.canStartBeltCalibration()).toBe(true)
     await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('stopped')
   })

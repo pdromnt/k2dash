@@ -1,20 +1,21 @@
 {
   "name": "K2Dash",
   "short_name": "K2Dash",
-  "description": "Real-time dashboard for the Creality K2 Plus 3D printer.",
-  "start_url": ".",
+  "description": "A local-first web dashboard for the Creality K2 series.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "landscape",
-  "theme_color": "#0a0b0d",
-  "background_color": "#0a0b0d",
+  "theme_color": "#121418",
+  "background_color": "#121418",
   "icons": [
     {
-      "src": "creality.png",
+      "src": "/k2dash-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "creality.png",
+      "src": "/k2dash-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

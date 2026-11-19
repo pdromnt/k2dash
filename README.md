@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/creality.png" width="112" height="112" alt="K2Dash logo" />
+  <img src="public/k2dash.svg" width="112" height="112" alt="K2Dash logo" />
   <h1>K2Dash</h1>
-  <p><strong>A local-first web dashboard for the Creality K2 Plus.</strong></p>
+  <p><strong>A local-first web dashboard for the Creality K2 series.</strong></p>
   <p>A cleaner alternative to the embedded dashboard—no cloud account or desktop app required.</p>
 
   <p>
@@ -56,7 +56,7 @@ Cleanup is manual, never automatic after printing. It does not edit `printer.cfg
 
 ## Quick start
 
-Requirements: Node.js 24+ (or 22.13+ on the 22.x line), npm, and a K2 Plus reachable on the same LAN.
+Requirements: Node.js 24+ (or 22.13+ on the 22.x line), npm, and a Creality K2-series printer reachable on the same LAN.
 
 ```bash
 git clone https://github.com/pdromnt/k2dash.git
@@ -143,9 +143,22 @@ Open `http://<printer-ip>:4408`. Future `npm run deploy` runs replace only the K
 
 ## PWA behavior
 
-K2Dash can be installed from a compatible browser using **Add to Home Screen** or **Install**. The service worker uses network-first navigation and cache-first content-hashed assets (`k2dash-v4`), so new deployments appear on reload while the application shell remains available during temporary network loss.
+Chrome’s address-bar **Install** promotion requires a secure origin. `http://<printer-ip>:4408` is ordinary LAN HTTP, so Chrome won’t promote it as a PWA there. Use a trusted HTTPS address or `http://localhost` on the computer running the dashboard. A browser menu shortcut, where available, does not enable the service worker on LAN HTTP.
 
-Printer data and controls still require the printer to be reachable on the LAN; printer traffic is deliberately never cached.
+For a local install, set `VITE_PRINTER_PROXY=true` for a local build (`npm run build`), then run `npm run preview -- --host localhost` and open `http://localhost:4173`. Keep the local server running when using the installed app. Don’t deploy this proxy-enabled build to the printer’s existing HTTP server unless that server also provides the proxy routes.
+
+For a shared HTTPS install, serve the proxy-enabled `dist/` on a trusted HTTPS reverse proxy on your LAN. Forward these prefixes to the printer, stripping each prefix and preserving the remainder and query string:
+
+| Prefix | Printer service |
+| --- | --- |
+| `/api/moonraker` | HTTP port `7125` |
+| `/api/printer-upload` | HTTP port `80` (uploads, thumbnails, and downloads) |
+| `/api/printer-camera` | HTTP port `8000` |
+| `/api/printer-ws` | WebSocket port `9999` (forward the WebSocket upgrade) |
+
+Use a certificate trusted by your devices and keep the service private. The dashboard has no login; don’t expose the proxy or printer to the public internet.
+
+The service worker keeps the previously loaded app shell available during a temporary outage. Printer data and controls still require a connection; printer traffic is never cached.
 
 ## Safe development previews
 
@@ -155,22 +168,30 @@ Preview config files include timestamped backups and a protected include so clea
 
 ### Validation limits
 
+The dashboard has been tested on the K2, K2 Pro, and K2 Plus. Model-specific maintenance features have their own validation limits; see the notes below.
+
 CFS starts send native `colorMatch` followed by `multiColorPrint`, following CrealityPrint's protocol. Real native file metadata retrieval and compatible slot selection have been checked read-only on a K2 Plus.
 
-Moonraker remains an explicit dependency for the existing file management, configuration editor, and history extension. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
+Moonraker is an explicit dependency for file management, configuration, history, and Klipper restarts. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
+
+**Save + Restart** saves the config and requests a Klipper host restart to reload it. **Controls → Maintenance → Firmware restart** also resets the controller boards, for example when recovering after an emergency stop. Neither action power-cycles the entire machine. If a reply is lost during restart, check the printer before retrying; it may already be restarting.
+
+After either dashboard action, a banner explains that Creality may briefly report XS3000 while Klipper is offline. The banner clears when the dashboard confirms recovery, or asks you to check the printer if it cannot confirm recovery within 30 seconds. Errors outside that restart window are shown normally.
 
 
-### Belt module calibration wizard
+### Experimental belt tension calibration
 
-In **Printer controls → Maintenance → Belt module strain-gauge calibration**, open the wizard preview. It rehearses the separate, jig-based service procedure, not the existing one-button **Belt calibration** operation. Every step is simulated; the wizard does not use any printer transport, read live results, issue motion commands, write module flash, or ask the operator to fit a real jig. For a dashboard session with no printer traffic at all, use `http://localhost:5173/?preview=idle#/printer` on the dev server.
+**K2 Plus only.** The dashboard uses the printer’s reported model, not its configured name. For a detected K2 or K2 Pro, Maintenance shows the appropriate Creality wiki guide for manual belt tensioning instead of the experimental wizard.
 
-The command excerpts omit positioning and synchronization details. They are not a script to run.
+In **Printer controls → Maintenance → [EXPERIMENTAL] Belt Tension Calibration**, choose **Open wizard**. This floating dialog guides the separate, jig-based sensor procedure, not the existing one-button **Belt calibration** macro. It replaces the old rehearsal and inline live panels with a single workflow: preparation → right belt → left belt → final module verification → manual self-test.
 
-**Experimental live calibration** is a separate, explicit opt-in for a stock K2 Plus on V1.1.4.11 or V1.1.8.0. The V1.1.8.01 download identifies itself internally as V1.1.8.0. The two stock versions and the V1.1.3.14.2 service image share the calibration driver and belt-module firmware. The driver writes persistent module flash. K2Dash's transport and operator flow have been tested with fixtures only, not on a real printer.
+The wizard links to Creality’s guide, jig model, and video. It includes the optional normal-tension check (7.5 N ± 0.5 N), middle-of-belt placement, and warning against pulling forcefully while fitting the jig. The guide’s special firmware and hidden touchscreen menu describe Creality’s original service route, not prerequisites for K2Dash’s stock-firmware path. For a dashboard session with no printer traffic at all, inspect preparation at `http://localhost:5173/?preview=idle#/printer`; module operations stay disabled in preview.
+
+The wizard is an explicit opt-in for a stock K2 Plus. V1.1.8.0 is the current offline validation reference (the V1.1.8.01 download uses V1.1.8.0 internally). Older and newer versions may work, but are not guaranteed. Stop the wizard at any discrepancy. You are responsible for proceeding and for any resulting issues. The driver writes persistent module flash; K2Dash's transport and operator flow have been tested with fixtures, not on a real printer.
 
 With both belts bare and the printer clear, use **Home all axes** in Printer controls, then enter `BOX_MOVE_TO_SAFE_POS` in Console and wait until the printer is fully parked and stationary. If parking fails or is unconfirmed, do not continue. Open [Creality's procedure and jig guide](https://wiki.creality.com/en/k2-flagship-series/k2-plus/belt-auto-tension-calibration) for physical setup; K2Dash does not home, park, or run the final self-test. The workflow requires fresh idle and cool/heaters-off status, explicit operator checks, and complete readbacks from both modules before it allows a write. It blocks competing commands from the same dashboard session until you finish or stop; emergency stop remains available. Keep other clients and the printer touchscreen from starting jobs or moving the printer. Every stage needs an explicit physical confirmation.
 
-If that firmware does not expose usable belt replies to K2Dash, or a module has blank or invalid calibration values, the wizard stops rather than guessing. A local send acknowledgment is not a completed write. A timeout, cancellation, disconnect, conflicting response, or wrong readback stops the session without retries. Once a write was attempted, presume the module could be partially calibrated: wait for the printer to stop before removing any jig, inspect/recover with the service procedure, and do not print until the printer has been checked. After a successful run, perform the printer self-test manually with both jigs removed.
+If that firmware does not expose usable belt replies to K2Dash, or a module has blank or invalid calibration values, the wizard stops rather than guessing. A local send acknowledgment is not a completed write. A timeout, cancellation, disconnect, conflicting response, or wrong readback stops the session without retries. Escape or closing during an active session stops future commands and leaves recovery instructions visible; an already-sent command cannot be recalled. Emergency stop remains accessible inside the dialog. Once a write was attempted, presume the module could be partially calibrated: wait for the printer to stop before removing any jig, inspect/recover with the service procedure, and do not print until the printer has been checked. After a successful run, perform the printer self-test manually with both jigs removed. No printer configuration save is needed.
 
 ## Development commands
 
@@ -190,7 +211,7 @@ K2Dash uses native Creality services for telemetry and controls, following Creal
 - Creality WebSocket (`9999`) for real-time state and printer commands.
 - Creality WebRTC signaling (`8000`) for the camera.
 - Creality HTTP upload service (`80`) for G-code uploads.
-- Moonraker (`7125`) for files, history, configuration (explicit extension features, never a fallback for controls).
+- Moonraker (`7125`) for files, history, configuration, and Klipper restarts (explicit features, not a fallback).
 
 Everything stays between your browser and printer on the local network.
 

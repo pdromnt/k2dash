@@ -10,7 +10,7 @@ app.use(router)
 app.mount('#app')
 
 // Register service worker for PWA installability
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch((err) => {
     console.warn('Service worker registration failed:', err)
   })

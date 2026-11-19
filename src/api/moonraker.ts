@@ -23,13 +23,23 @@ interface HistoryList {
   jobs: HistoryJob[]
 }
 
-/**
- * Restart the Klipper host. Required after editing config files so the
- * changes take effect. May not be available on every firmware — the
- * K2 Plus's Creality fork supports it via the standard Moonraker path.
- */
-export async function restartKlipper(): Promise<string> {
-  return api.post('/printer/restart')
+/** Restart the host to reload config, or also reset its MCUs for recovery. */
+export async function restartKlipper(kind: 'host' | 'firmware'): Promise<void> {
+  // The installed Moonraker may wait up to 20s for Klippy before issuing it.
+  const response = await api.post<{ result?: string }>(
+    kind === 'firmware' ? '/printer/firmware_restart' : '/printer/restart',
+    undefined,
+    35_000,
+  )
+  if (response?.result !== 'ok') throw new Error('Moonraker did not acknowledge the restart.')
+}
+
+export async function getKlipperState(timeoutMs: number): Promise<string | undefined> {
+  const { result } = await api.get<{ result?: { state?: string } }>('/printer/info', {
+    timeoutMs,
+    cache: 'no-store',
+  })
+  return result?.state
 }
 
 export async function getFileList(root = 'gcodes'): Promise<FileInfo[]> {
