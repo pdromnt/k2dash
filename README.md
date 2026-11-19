@@ -101,7 +101,15 @@ During development, Vite proxies printer traffic to avoid browser CORS restricti
 > [!WARNING]
 > Deployment uses root SSH access and modifies files under `/mnt/UDISK`. Read the script and understand the nginx change before proceeding. Firmware updates may restore Creality's original configuration.
 
-The deploy command runs tests, type-checking, lint, and a production build before uploading:
+**Set the deploy target first.** If you don't already have a `.env` file in the project root, copy `.env.example` to `.env`. Set `VITE_PRINTER_HOST` to your printer's LAN IP address or local hostname, without a URL scheme or port:
+
+```dotenv
+VITE_PRINTER_HOST=192.168.1.50
+```
+
+Replace the example IP with your printer's address. This is the same setting used by the dashboard. The deploy script reads it directly from `.env` to choose the SSH destination; it does not discover printers automatically. If the IP changes, update `.env` before deploying again.
+
+From the project root, run the deploy command. It runs tests, type-checking, lint, and a production build before uploading to that host:
 
 ```bash
 npm run deploy
@@ -212,7 +220,7 @@ If that firmware does not expose usable belt replies to K2Dash, or a module has 
 | `npm run build` | Type-check and build for production |
 | `npx eslint src/` | Lint application code |
 | `npm run preview` | Preview the production build locally |
-| `npm run deploy` | Test, validate, build, and atomically deploy to the printer |
+| `npm run deploy` | Test, validate, build, and [deploy to the printer set in `.env`](#deploy-to-the-printer) |
 
 ## How it connects
 
