@@ -6,6 +6,7 @@ import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
 import QuickControls from './QuickControls.vue'
+import BeltModuleCalibrationPreview from './BeltModuleCalibrationPreview.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
 const ws = usePrinterWs()
@@ -334,6 +335,7 @@ async function utility(command: UtilityCommand) {
         Calibration heats or moves the printer. Review the confirmation before
         continuing.
       </p>
+      <BeltModuleCalibrationPreview />
     </section>
   </div>
 </template>

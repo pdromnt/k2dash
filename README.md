@@ -159,6 +159,13 @@ CFS starts send native `colorMatch` followed by `multiColorPrint`, following Cre
 
 Moonraker remains an explicit dependency for the existing file management, configuration editor, and history extension. There is no Moonraker fallback for telemetry, print lifecycle, G-code, lights, or emergency stop.
 
+
+### Belt module calibration wizard
+
+In **Printer controls → Maintenance → Belt module strain-gauge calibration**, open the wizard preview. It rehearses the separate, jig-based service procedure, not the existing one-button **Belt calibration** operation. Every step is simulated; the wizard does not use any printer transport, read live results, issue motion commands, write module flash, or ask the operator to fit a real jig. For a dashboard session with no printer traffic at all, use `http://localhost:5173/?preview=idle#/printer` on the dev server.
+
+The command excerpts are offline fixtures for review. They omit synchronization and positioning details and are not a script to run. Creality's [service procedure and jig](https://wiki.creality.com/en/k2-flagship-series/k2-plus/belt-auto-tension-calibration) document the physical process. Firmware inspection found the same belt calibration backend in V1.1.3.14.2 and V1.1.4.11, but live stage and side correlation, fresh module readback, physical setup, and recovery have not been validated on V1.1.4.11. Do not enable live writes until those behaviors are verified. A send acknowledgment is not proof of a successful or correctly attributed calibration sample.
+
 ## Development commands
 
 | Command | Action |
