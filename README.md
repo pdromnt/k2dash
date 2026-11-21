@@ -29,7 +29,7 @@ Version 2.0 introduces a redesigned desktop and mobile workspace, explicit CFS p
 ## What it does
 
 - **Live print status** — progress, layers, ETA, elapsed time, temperatures, fans, filament use, filename, and thumbnail.
-- **CFS materials** — physical slots and colors, material names, humidity, temperature, and explicit filament mapping before printing.
+- **CFS materials** — physical slots and colors, material names, remaining filament estimates when reported, humidity, temperature, and explicit filament mapping before printing.
 - **Live camera** — WebRTC stream using the printer's native signaling service.
 - **Printer controls** — pause, resume, cancel, emergency stop, jog, homing, heaters, fans, and chamber light.
 - **Safe utilities** — filament load/unload, leveling, input shaping, belt and Z calibration, plus guarded PID calibration.

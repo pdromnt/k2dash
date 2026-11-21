@@ -47,6 +47,32 @@ describe('native CFS snapshots', () => {
       [null, null],
     ])
   })
+  it('preserves reported spool estimates without claiming an unmeasured spool is full', () => {
+    const snapshot = parseCfsSnapshot({
+      materialBoxs: [
+        box(1, { materials: [
+          { ...mat(0), remaining_length: '42900', percent: 26 },
+          { ...mat(1), remaining_length: 0, percent: 0 },
+          { ...mat(2), percent: 100 },
+          { ...mat(3), remaining_length: 0, percent: 100 },
+        ] }),
+        { id: 0, type: 1, materials: [{ ...mat(), remaining_length: 42900, percent: 26 }] },
+      ],
+    })!
+    expect(snapshot.units[0]!.slots.map(({ remainingLengthMm, percent }) => [remainingLengthMm, percent]))
+      .toEqual([[42900, 26], [0, 0], [null, 100], [null, 100]])
+    expect(snapshot.spoolSlots[0]!.remainingLengthMm).toBeNull()
+  })
+  it('rejects malformed length and percentage estimates independently', () => {
+    const snapshot = parseCfsSnapshot({ materialBoxs: [box(1, { materials: [
+      { ...mat(0), remaining_length: -1, percent: 26 },
+      { ...mat(1), remaining_length: 'unknown', percent: -1 },
+      { ...mat(2), remaining_length: 18150, percent: 101 },
+      { ...mat(3, ''), remaining_length: 16500, percent: 10 },
+    ] })] })!
+    expect(snapshot.units[0]!.slots.map(({ remainingLengthMm, percent }) => [remainingLengthMm, percent]))
+      .toEqual([[null, 26], [null, null], [18150, null], [null, 10]])
+  })
   it('distinguishes partial telemetry from an authoritative empty snapshot', () => {
     expect(parseCfsSnapshot({ name: 'CFS' })).toBeNull()
     expect(parseCfsSnapshot({ materialBoxs: null })).toBeNull()

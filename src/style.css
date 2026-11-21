@@ -699,6 +699,10 @@ textarea {
     overflow: hidden;
     white-space: nowrap;
   }
+  .material-slot .material-remaining {
+    font-variant-numeric: tabular-nums;
+    white-space: normal;
+  }
   .material-slot-empty .material-colour {
     background: transparent;
     border: 1px dashed #778392;

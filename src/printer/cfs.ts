@@ -5,7 +5,8 @@ export interface CfsSlot {
   color: string
   name: string
   vendor: string
-  percent: number
+  percent: number | null
+  remainingLengthMm: number | null
   minTemp: number
   maxTemp: number
   state: number
@@ -57,14 +58,23 @@ export function parseCfsSnapshot(
       )
         continue
       const color = text(mat.color)
+      const type = text(mat.type)
+      const rawPercent = number(mat.percent)
+      const percent = rawPercent !== null && rawPercent >= 0 && rawPercent <= 100
+        ? rawPercent
+        : null
+      const length = number(mat.remaining_length)
       slots.set(materialId, {
         boxId: id,
         materialId,
-        type: text(mat.type),
+        type,
         color: color && !color.startsWith('#') ? '#' + color : color,
         name: text(mat.name),
         vendor: text(mat.vendor),
-        percent: number(mat.percent) ?? 0,
+        percent,
+        // A default 100% without a length is not a measured estimate.
+        remainingLengthMm: box.type === 0 && type && length !== null &&
+          (length > 0 || (length === 0 && percent === 0)) ? length : null,
         minTemp: number(mat.minTemp) ?? 0,
         maxTemp: number(mat.maxTemp) ?? 0,
         state: number(mat.state) ?? 0,

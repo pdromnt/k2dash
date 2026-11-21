@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { displayFilamentColor } from '@/printer/materialMapping'
 const printer = usePrinterStore()
+const meters = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 const groups = computed(() =>
   !printer.connected
     ? []
@@ -72,6 +73,9 @@ const groups = computed(() =>
               ? slot.name || slot.vendor || 'Material loaded'
               : 'No material loaded'
           }}</small>
+          <small v-if="slot.remainingLengthMm !== null" class="material-remaining">
+            ~{{ meters.format(slot.remainingLengthMm / 1000) }}&nbsp;m left<span v-if="slot.percent !== null"> · {{ slot.percent }}%</span>
+          </small>
         </div>
       </div>
     </div>
