@@ -53,7 +53,7 @@ npm run deploy
 ~~~
 
 - **First install?** Follow the [one-time nginx setup](docs/printer-setup.md#one-time-nginx-setup), then open `http://<printer-ip>:4408`.
-- **Updating?** Run the command again. It replaces only the dashboard files and does not edit nginx or reboot the printer.
+- **Updating?** Just `git pull` and run the command again. It replaces only the dashboard files and does not edit nginx or reboot the printer.
 - **Want to install it as an app?** See [PWA setup](docs/printer-setup.md#install-as-an-app). Chrome’s PWA install promotion doesn’t work on ordinary LAN HTTP.
 
 ## Using the dashboard
