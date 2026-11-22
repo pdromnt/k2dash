@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, onMounted } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinterWs } from '@/composables/usePrinterWs'
 import { usePrintThumbnail } from '@/composables/usePrintThumbnail'
+import { useIosStandaloneViewport } from '@/composables/useIosStandaloneViewport'
 import { isPreview, previewState } from '@/utils/preview'
 import AppBanner from './AppBanner.vue'
 import PrinterRestartNotice from './PrinterRestartNotice.vue'
@@ -16,6 +17,7 @@ const ConfigModal = defineAsyncComponent(
 )
 const printer = usePrinterStore()
 const printerWs = usePrinterWs()
+const standaloneViewport = useIosStandaloneViewport()
 usePrintThumbnail()
 const status = computed(() =>
   !printer.connected
@@ -34,7 +36,14 @@ function previewUrl(state: string) {
 }
 </script>
 <template>
-  <div class="app-shell">
+  <div
+    class="app-shell"
+    :class="{ 'app-shell-standalone': standaloneViewport }"
+    :style="standaloneViewport ? {
+      '--ios-standalone-height': `${standaloneViewport.height}px`,
+      '--ios-standalone-top': `${standaloneViewport.top}px`,
+    } : undefined"
+  >
     <a class="skip-link" href="#main-content">Skip to content</a>
     <ConfirmDialog />
     <header class="app-header">

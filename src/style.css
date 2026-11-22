@@ -87,8 +87,13 @@ textarea {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh;
-    min-height: 100svh;
+    height: var(--ios-standalone-height, 100dvh);
+    min-height: var(--ios-standalone-height, 100svh);
+  }
+  .app-shell-standalone {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--ios-standalone-top, 0px);
   }
   .app-header {
     height: 64px;
