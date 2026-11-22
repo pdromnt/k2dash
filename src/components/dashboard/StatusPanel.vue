@@ -10,11 +10,15 @@ import {
 } from '@/utils/format'
 import PrintActions from '@/components/controls/PrintActions.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
-import { estimateFilamentLeft } from '@/utils/filamentUsage'
+import { estimateJobFilament } from '@/utils/filamentUsage'
 const printer = usePrinterStore()
 const active = computed(() => printer.isPrinting || printer.isPaused)
-const filamentLeft = computed(() =>
-  estimateFilamentLeft(printer.filamentUsed, printer.filamentEstimated, printer.filamentEstimatedWeight),
+const filamentEstimate = computed(() =>
+  estimateJobFilament(
+    printer.filamentUsed,
+    printer.filamentEstimated,
+    printer.filamentEstimatedWeight,
+  ),
 )
 const stateLabel = computed(() =>
   !printer.connected
@@ -157,10 +161,16 @@ onUnmounted(() => clearTimeout(retry))
         <dt>Filament used</dt>
         <dd>
           {{ printer.filamentUsed === null ? '—' : fmtFilamentMeters(printer.filamentUsed) }}
-          <span v-if="printer.filamentEstimated > 0">/ ~{{ fmtFilamentMeters(printer.filamentEstimated) }}</span>
-          <span v-if="filamentLeft" class="job-filament-detail">
-            <template v-if="filamentLeft.mm > 0">
-              ~{{ fmtFilamentMeters(filamentLeft.mm) }} left<span v-if="filamentLeft.grams !== null"> · ~{{ Math.round(filamentLeft.grams) }}&nbsp;g</span>
+          <span v-if="filamentEstimate && filamentEstimate.usedGrams !== null">
+            / ~{{ Math.round(filamentEstimate.usedGrams) }}&nbsp;g
+          </span>
+          <span v-if="filamentEstimate" class="job-filament-detail">
+            <template v-if="filamentEstimate.remainingMm > 0">
+              ~{{ fmtFilamentMeters(filamentEstimate.remainingMm) }}
+              <template v-if="filamentEstimate.remainingGrams !== null">
+                / ~{{ Math.round(filamentEstimate.remainingGrams) }}&nbsp;g
+              </template>
+              left
             </template>
             <template v-else>
               {{ (printer.filamentUsed ?? 0) > printer.filamentEstimated ? 'Over estimate' : 'Estimate reached' }}

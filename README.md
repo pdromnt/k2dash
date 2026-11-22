@@ -58,7 +58,7 @@ npm run deploy
 
 ## Using the dashboard
 
-- **Overview** — monitor the job, camera, temperatures, fans, and CFS. When slicer metadata is available, the job shows estimated filament left in metres and grams. CFS slots show their separate spool estimates only when the printer reports them.
+- **Overview** — monitor the job, camera, temperatures, fans, and CFS. The job shows metres used from the printer, plus estimated grams used and metres and grams left when slicer metadata is available. CFS slots show their separate spool estimates only when the printer reports them.
 - **Files** — upload, browse, rename, delete, or start a print.
 - **Controls** — move the printer, set heaters, operate fans and lights, and run maintenance. Disruptive controls lock while a print is preparing, running, or paused.
 - **Activity** — browse print history and view, download, or delete timelapses.

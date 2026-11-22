@@ -1,19 +1,22 @@
-/** Remaining job usage, not remaining stock on any particular spool. */
-export function estimateFilamentLeft(
+/** Job usage estimates, not remaining stock on any particular spool. */
+export function estimateJobFilament(
   usedMm: number | null,
   totalMm: number,
   totalGrams: number,
 ) {
-  if (usedMm === null || usedMm < 0 || !Number.isFinite(usedMm) ||
-      totalMm <= 0 || !Number.isFinite(totalMm)) return null
+  if (
+    usedMm === null || usedMm < 0 || !Number.isFinite(usedMm) ||
+    totalMm <= 0 || !Number.isFinite(totalMm)
+  ) return null
 
-  const mm = Math.max(0, totalMm - usedMm)
+  const remainingMm = Math.max(0, totalMm - usedMm)
+  // The slicer accounts for material density. Without per-material live
+  // usage, both weights use the job's average grams per metre.
+  const estimateGrams = (mm: number) =>
+    totalGrams > 0 && Number.isFinite(totalGrams) ? (mm / totalMm) * totalGrams : null
   return {
-    mm,
-    // The slicer already accounts for the materials' densities. Without
-    // per-material live usage this is the job's average grams per metre.
-    grams: totalGrams > 0 && Number.isFinite(totalGrams)
-      ? (mm / totalMm) * totalGrams
-      : null,
+    usedGrams: estimateGrams(usedMm),
+    remainingMm,
+    remainingGrams: estimateGrams(remainingMm),
   }
 }
