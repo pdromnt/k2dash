@@ -42,7 +42,8 @@
   .search-field input::placeholder {
     color: var(--text-mute);
   }
-  .sort-select {
+  /* Keep the sort control narrower than the shared full-width .input. */
+  .file-tools > .sort-select {
     width: 140px;
     font-size: 12px;
   }
