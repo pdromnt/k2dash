@@ -1,37 +1,28 @@
 import { getUploadBaseUrl } from '@/utils/env'
 import { isPreview } from '@/utils/preview'
 
-export async function uploadFileKlipper4408(
+export async function uploadGcodeFile(
   file: File,
-  onProgress?: (pct: number, speed: number) => void,
-): Promise<unknown> {
+  onProgress?: (pct: number) => void,
+): Promise<void> {
   if (isPreview) throw new Error('Uploads are disabled in preview')
   const filename = encodeURIComponent(file.name)
   const url = `${getUploadBaseUrl()}/upload/${filename}`
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    let lastProgressAt = performance.now()
-    let lastLoaded = 0
     xhr.open('POST', url)
     xhr.timeout = 300000
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable && onProgress) {
-        const pct = Math.round((e.loaded / e.total) * 100)
-        const now = performance.now()
-        const elapsedSeconds = (now - lastProgressAt) / 1000
-        const speed =
-          elapsedSeconds > 0 ? (e.loaded - lastLoaded) / elapsedSeconds : 0
-        lastProgressAt = now
-        lastLoaded = e.loaded
-        onProgress(pct, speed)
+        onProgress(Math.round((e.loaded / e.total) * 100))
       }
     })
 
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve({ status: xhr.status, body: xhr.responseText })
+        resolve()
       } else {
         reject(new Error(`Upload failed: ${xhr.status}`))
       }

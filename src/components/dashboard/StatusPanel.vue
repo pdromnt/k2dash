@@ -12,7 +12,7 @@ import PrintActions from '@/components/controls/PrintActions.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { estimateJobFilament } from '@/utils/filamentUsage'
 const printer = usePrinterStore()
-const active = computed(() => printer.isPrinting || printer.isPaused)
+const active = computed(() => printer.jobActive)
 const filamentEstimate = computed(() =>
   estimateJobFilament(
     printer.filamentUsed,

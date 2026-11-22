@@ -10,7 +10,7 @@ const printer = usePrinterStore()
 // during prints because Klipper is explicitly designed to accept
 // injected G-code mid-print (pause/resume, filament runout response,
 // etc.). We surface the state as awareness, not a hard block.
-const jobActive = computed(() => printer.isPrinting || printer.isPaused)
+const jobActive = computed(() => printer.jobActive)
 
 const input = ref('')
 const history = ref<string[]>([])

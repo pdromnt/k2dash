@@ -12,7 +12,7 @@ const printer = usePrinterStore(),
   toast = useToastStore(),
   banner = useBannerStore()
 const busy = ref(false)
-const active = computed(() => printer.isPrinting || printer.isPaused)
+const active = computed(() => printer.jobActive)
 async function act(action: 'pause' | 'resume' | 'cancel' | 'stop') {
   if (busy.value || !printer.connected) return
   if (action === 'cancel' || action === 'stop') {

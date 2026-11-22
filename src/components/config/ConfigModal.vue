@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  reactive,
-  h,
-  defineComponent,
-  nextTick,
-  watch,
-  onUnmounted,
-  onMounted,
-} from 'vue'
+import { ref, computed, reactive, onUnmounted, onMounted } from 'vue'
 import {
   getConfigFiles,
   getConfigFile,
@@ -24,16 +14,12 @@ import {
   confirmationDialog,
   requestConfirmation,
 } from '@/composables/useConfirmDialog'
-import { EditorView, basicSetup } from 'codemirror'
-import { EditorState } from '@codemirror/state'
-import {
-  StreamLanguage,
-  syntaxHighlighting,
-  HighlightStyle,
-} from '@codemirror/language'
-import { tags } from '@lezer/highlight'
+import ConfigEditor from './ConfigEditor.vue'
+import ConfigFileRow from './ConfigFileRow.vue'
+import { buildConfigTree } from './configTree'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterActionLock } from '@/composables/usePrinterActionLock'
 import { usePrinterRestart } from '@/composables/usePrinterRestart'
 import PrinterRestartNotice from '@/components/layout/PrinterRestartNotice.vue'
 import {
@@ -42,161 +28,19 @@ import {
   planConfigBackupCleanup,
   referencedConfigBackups,
   type ConfigFileEntry,
-} from '@/utils/configBackups'
-
-const klipperConfig = StreamLanguage.define({
-  token(stream) {
-    if (stream.sol() && stream.match('#')) {
-      stream.skipToEnd()
-      return 'comment'
-    }
-
-    if (stream.match('{%')) {
-      stream.eatWhile((c) => c !== '%')
-      if (!stream.match('%}')) stream.skipToEnd()
-      return 'typeName'
-    }
-
-    if (stream.match('{{')) {
-      stream.eatWhile((c) => c !== '}')
-      if (!stream.match('}}')) stream.skipToEnd()
-      return 'string'
-    }
-
-    if (stream.sol() && stream.match('[')) {
-      stream.eatWhile(/[^\]]/)
-      stream.eat(']')
-      return 'keyword'
-    }
-
-    if (stream.match(/^\d+\.?\d*/)) {
-      return 'number'
-    }
-
-    if (stream.match(/"[^"]*"/)) {
-      return 'string'
-    }
-
-    if (stream.match(/^[A-Z][A-Z0-9_]+(\s*\()?/)) {
-      return 'atom'
-    }
-
-    if (stream.match(/^[a-zA-Z_][\w_]*\s*[:=]/)) {
-      return 'variableName'
-    }
-
-    if (stream.match('#')) {
-      stream.skipToEnd()
-      return 'comment'
-    }
-
-    stream.next()
-    return null
-  },
-  languageData: { commentTokens: { line: '#' } },
-})
+} from './configBackups'
 
 const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
-const { printStarting, beltCalibrationActive } = usePrinterWs()
-const { blocked: restartBlocked, pending: restartPending, restart } = usePrinterRestart()
-
-// One row in the file tree. Extracted so sub-entry (indented) and
-// root-level (full-width) files share markup. The only difference is
-// the horizontal padding class, passed via `padClass`.
-const FileRow = defineComponent({
-  name: 'FileRow',
-  props: {
-    path: { type: String, required: true },
-    name: { type: String, required: true },
-    size: { type: Number, default: 0 },
-    selected: { type: Boolean, default: false },
-    deleteDisabled: { type: Boolean, default: false },
-    padClass: { type: String, required: true },
-    openFile: { type: Function, required: true },
-    deleteFile: { type: Function, required: true },
-  },
-  setup(props) {
-    return () =>
-      h(
-        'div',
-        {
-          class: [
-            'flex items-center group',
-            props.selected ? 'bg-[var(--green)]/10' : '',
-          ],
-        },
-        [
-          h(
-            'button',
-            {
-              class: [
-                'flex-1 text-left py-2 text-[13px] group-hover:bg-white/[0.02] transition-colors min-w-0',
-                props.padClass,
-              ],
-              onClick: () => props.openFile(props.path),
-            },
-            [
-              h('div', { class: 'flex items-center gap-2' }, [
-                h(AppIcon, { name: 'file', size: 16 }),
-                h('span', { class: 'truncate font-medium' }, props.name),
-              ]),
-              h(
-                'div',
-                { class: 't-mono text-[10px] mt-0.5 ml-[25px]' },
-                fmtSize(props.size),
-              ),
-            ],
-          ),
-          h(
-            'button',
-            {
-              class: [
-                'shrink-0 flex items-center gap-1.5 mx-2 px-3 py-2 rounded-md border text-[12px] font-medium transition-all',
-                props.deleteDisabled
-                  ? 'border-transparent text-[var(--text-mute)] opacity-35 cursor-not-allowed'
-                  : 'border-transparent text-[var(--text-mute)] hover:text-[var(--red)] hover:border-[rgba(224,85,85,0.35)] hover:bg-[rgba(224,85,85,0.1)]',
-              ],
-              disabled: props.deleteDisabled,
-              onClick: () => {
-                if (!props.deleteDisabled) props.deleteFile(props.path)
-              },
-              'aria-label': `Delete ${props.name}`,
-              title: props.deleteDisabled
-                ? 'Config changes are locked while busy or disconnected'
-                : `Delete ${props.name}`,
-            },
-            [
-              h(
-                'svg',
-                {
-                  class: 'w-4 h-4',
-                  fill: 'none',
-                  stroke: 'currentColor',
-                  viewBox: '0 0 24 24',
-                  'stroke-width': '1.75',
-                },
-                [
-                  h('path', {
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round',
-                    d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
-                  }),
-                ],
-              ),
-              h('span', 'Delete'),
-            ],
-          ),
-        ],
-      )
-  },
-})
+const { printStarting } = usePrinterWs()
+const actionLock = usePrinterActionLock()
+const { blocked: restartBlocked, restart } = usePrinterRestart()
 
 // Editing config and (more importantly) restarting Klipper mid-print is
 // a great way to ruin a job. Block both buttons whenever a print is
 // active (printing, preparing, or paused).
-const jobActive = computed(() => printer.isPrinting || printer.isPaused)
+const jobActive = computed(() => printer.jobActive)
 
 const show = ref(false)
 // Two distinct views inside the modal: the file list, and the editor for
@@ -216,22 +60,9 @@ const showBackups = ref(false)
 const cleaning = ref(false)
 const cleanedCount = ref(0)
 const cleanupStatus = ref('')
-const mutationsBlocked = computed(
-  () =>
-    jobActive.value ||
-    !printer.connected ||
-    printStarting.value ||
-    beltCalibrationActive.value ||
-    restartPending.value ||
-    cleaning.value ||
-    saving.value,
-)
-function cleanupAllowed() {
-  return printer.connected && !jobActive.value && !printStarting.value
-}
+const mutationsBlocked = computed(() => Boolean(actionLock.value) || cleaning.value || saving.value)
 
-const editorHost = ref<HTMLDivElement>()
-let editorView: EditorView | null = null
+const editor = ref<InstanceType<typeof ConfigEditor>>()
 
 // Tooltip refs — teleported to body so they escape the modal's
 // overflow:hidden and stacking context. Positioned from the trigger
@@ -255,209 +86,87 @@ function showTip(btn: HTMLButtonElement | undefined, text: string) {
 function hideTip() {
   tip.visible = false
 }
-const SAVE_TIP = "Can't save while printing"
-const RESTART_TIP = "Can't restart while printing"
-const showSaveTip = () => showTip(saveBtn.value, SAVE_TIP)
-const showRestartTip = () => showTip(restartBtn.value, RESTART_TIP)
+const showSaveTip = () => showTip(saveBtn.value, actionLock.value)
+const showRestartTip = () => showTip(restartBtn.value, actionLock.value)
 
-interface TreeEntry {
-  name: string
-  path: string
-  size?: number
-  isDir: boolean
-  children?: TreeEntry[]
-}
+const tree = computed(() => buildConfigTree(
+  rawFiles.value.filter((file) => !isPrinterConfigBackup(file.path)),
+))
+let listRequest = 0
 
-const tree = ref<TreeEntry[]>([])
-
-function buildTree(
-  rawFiles: Array<{ path: string; size: number; modified: number }>,
-): TreeEntry[] {
-  const root: TreeEntry[] = []
-  for (const f of rawFiles) {
-    const parts = f.path.split('/')
-    let level = root
-    for (let i = 0; i < parts.length; i++) {
-      const isLast = i === parts.length - 1
-      const name = parts[i]
-      let existing = level.find((e) => e.name === name && e.isDir === !isLast)
-      if (!existing) {
-        existing = {
-          name,
-          path: parts.slice(0, i + 1).join('/'),
-          isDir: !isLast,
-          size: isLast ? f.size : undefined,
-          children: isLast ? undefined : [],
-        }
-        level.push(existing)
-        level.sort((a, b) => {
-          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
-          return a.name.localeCompare(b.name)
-        })
-      }
-      if (!isLast && existing.children) level = existing.children
-    }
-  }
-  return root
-}
-
-function toggle() {
-  if (cleaning.value) return
+async function toggle() {
+  if (cleaning.value || saving.value) return
   if (show.value) {
-    show.value = false
+    await leaveEditor('close')
     return
   }
   show.value = true
+  await loadFiles()
+}
+
+function resetEditor() {
+  hideTip()
   view.value = 'list'
-  loadFiles()
+  selected.value = ''
+  changed.value = false
+  newFileName.value = ''
 }
 
-async function confirmDiscardChanges() {
-  return requestConfirmation({
-    title: 'Discard unsaved changes?',
-    message: 'Your edits will be lost.',
-    confirmLabel: 'Discard changes',
-    tone: 'warning',
-  })
-}
-
-async function close() {
-  if (cleaning.value) return
+async function leaveEditor(destination: 'close' | 'list') {
+  if (cleaning.value || saving.value) return
   if (view.value === 'editor' && changed.value) {
-    if (!(await confirmDiscardChanges())) return
+    const discard = await requestConfirmation({
+      title: 'Discard unsaved changes?',
+      message: 'Your edits will be lost.',
+      confirmLabel: 'Discard changes',
+      tone: 'warning',
+    })
+    if (!discard || saving.value) return
   }
-  show.value = false
+  if (destination === 'close') {
+    listRequest++
+    show.value = false
+  }
+  resetEditor()
+}
+
+function close() {
+  return leaveEditor('close')
+}
+
+function cancel() {
+  return leaveEditor('list')
 }
 
 async function loadFiles() {
+  const request = ++listRequest
   loading.value = true
   try {
-    const raw = await getConfigFiles()
-    rawFiles.value = raw
-    tree.value = buildTree(
-      raw.filter((file) => !isPrinterConfigBackup(file.path)),
-    )
-    collapsed.value = new Set(
-      tree.value.filter((e) => e.isDir).map((e) => e.path),
-    )
-  } catch (e) {
-    banner.show('Failed to load config files', errMsg(e))
-  }
-  loading.value = false
-}
-
-function createEditor(doc: string) {
-  destroyEditor()
-  if (!editorHost.value) return
-  editorView = new EditorView({
-    state: EditorState.create({
-      doc,
-      extensions: [
-        basicSetup,
-        klipperConfig,
-        syntaxHighlighting(
-          HighlightStyle.define([
-            {
-              tag: tags.comment,
-              color: 'rgba(255,255,255,0.25)',
-              fontStyle: 'italic',
-            },
-            { tag: tags.keyword, color: 'var(--green)', fontWeight: '600' },
-            { tag: tags.variableName, color: 'rgba(255,255,255,0.45)' },
-            { tag: tags.number, color: 'var(--blue)' },
-            { tag: tags.string, color: 'rgba(139,175,52,0.65)' },
-            { tag: tags.typeName, color: 'var(--amber)' },
-            { tag: tags.atom, color: '#c586c0' },
-          ]),
-        ),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) changed.value = true
-        }),
-        EditorView.theme({
-          '&': { height: '100%', backgroundColor: 'var(--bg-terminal)' },
-          '.cm-scroller': {
-            fontFamily:
-              '"JetBrains Mono", "Fira Code", ui-monospace, monospace',
-            fontSize: '13px',
-            lineHeight: '1.8',
-          },
-          '.cm-gutters': {
-            backgroundColor: '#0c0d10',
-            borderRight: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.2)',
-          },
-          '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.02)' },
-          '.cm-activeLine': { backgroundColor: 'rgba(139,175,52,0.04)' },
-          '.cm-cursor': { borderLeftColor: 'var(--green)' },
-          '.cm-selectionBackground': {
-            backgroundColor: 'rgba(139,175,52,0.2) !important',
-          },
-          '.cm-matchingBracket': {
-            backgroundColor: 'rgba(139,175,52,0.12)',
-            outline: '1px solid rgba(139,175,52,0.3)',
-          },
-          '.cm-line': { padding: '0 4px' },
-        }),
-      ],
-    }),
-    parent: editorHost.value,
-  })
-}
-
-function destroyEditor() {
-  if (editorView) {
-    editorView.destroy()
-    editorView = null
+    const files = await getConfigFiles()
+    if (request !== listRequest) return
+    rawFiles.value = files
+    collapsed.value = new Set(tree.value.filter((file) => file.isDir).map((file) => file.path))
+  } catch (error) {
+    if (request === listRequest) banner.show('Failed to load config files', errMsg(error))
+  } finally {
+    if (request === listRequest) loading.value = false
   }
 }
 
-async function openFile(p: string) {
+function openFile(path: string) {
   if (cleaning.value) return
-  selected.value = p
-  changed.value = false
-  newFileName.value = ''
+  resetEditor()
+  selected.value = path
   view.value = 'editor'
 }
 
 function startNewFile() {
-  if (mutationsBlocked.value) return
-  selected.value = ''
-  changed.value = false
-  newFileName.value = ''
-  view.value = 'editor'
+  if (!mutationsBlocked.value) openFile('')
 }
 
-// Create the editor when the view flips to 'editor'. Awaiting nextTick
-// (and a frame, since <Transition> with mode="out-in" defers the new
-// view) guarantees editorHost is mounted before we hand it to CodeMirror.
-watch(view, async (v) => {
-  if (v !== 'editor' || editorView) return
-  await nextTick()
-  await new Promise(requestAnimationFrame)
-  if (!editorHost.value) return
-  if (selected.value) {
-    try {
-      const text = await getConfigFile(selected.value)
-      createEditor(text)
-    } catch (e) {
-      banner.show('Failed to read config', errMsg(e))
-      view.value = 'list'
-    }
-  } else {
-    createEditor('')
-  }
-})
-
-// Back from the editor → list. Confirm if there are unsaved changes.
-async function cancel() {
-  if (changed.value) {
-    if (!(await confirmDiscardChanges())) return
-  }
-  destroyEditor()
-  selected.value = ''
-  changed.value = false
-  newFileName.value = ''
-  view.value = 'list'
+function onEditorError(error: unknown) {
+  banner.show('Failed to read config', errMsg(error))
+  resetEditor()
 }
 
 async function save() {
@@ -474,17 +183,13 @@ async function saveAndRestart() {
 async function saveFile(): Promise<boolean> {
   if (mutationsBlocked.value) return false
   const fp = selected.value || newFileName.value
-  if (!fp || !changed.value) return false
+  const doc = editor.value?.read()
+  if (!fp || !changed.value || doc === undefined) return false
   saving.value = true
   try {
-    const doc = editorView?.state.doc.toString() || ''
     await saveConfigFile(fp, doc)
     toast.show(`Saved ${fp}`)
-    destroyEditor()
-    selected.value = ''
-    changed.value = false
-    newFileName.value = ''
-    view.value = 'list'
+    resetEditor()
     await loadFiles()
     return true
   } catch (e) {
@@ -510,13 +215,7 @@ async function delFile(p: string) {
   try {
     await deleteConfigFile(p)
     toast.show(`Deleted ${p}`)
-    if (selected.value === p) {
-      destroyEditor()
-      selected.value = ''
-      changed.value = false
-      newFileName.value = ''
-      view.value = 'list'
-    }
+    if (selected.value === p) resetEditor()
     await loadFiles()
   } catch (e) {
     banner.show('Failed to delete config', errMsg(e))
@@ -555,7 +254,7 @@ async function cleanupBackups() {
       list: getConfigFiles,
       read: getConfigFile,
       remove: deleteConfigFile,
-      allowed: cleanupAllowed,
+      allowed: () => !actionLock.value,
       progress: (n) => {
         cleanedCount.value = n
         cleanupStatus.value = `Deleting ${n} of ${count} backups…`
@@ -587,7 +286,7 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  destroyEditor()
+  listRequest++
 })
 </script>
 
@@ -721,7 +420,7 @@ onUnmounted(() => {
                       <span class="truncate">{{ entry.name }}</span>
                     </button>
                     <template v-if="!collapsed.has(entry.path)">
-                      <FileRow
+                      <ConfigFileRow
                         v-for="sub in entry.children"
                         :key="sub.path"
                         :path="sub.path"
@@ -730,13 +429,13 @@ onUnmounted(() => {
                         :selected="selected === sub.path"
                         :delete-disabled="mutationsBlocked"
                         pad-class="pl-12 pr-3"
-                        :open-file="openFile"
-                        :delete-file="delFile"
+                        @open="openFile"
+                        @remove="delFile"
                       />
                     </template>
                   </template>
 
-                  <FileRow
+                  <ConfigFileRow
                     v-else
                     :path="entry.path"
                     :name="entry.name"
@@ -744,8 +443,8 @@ onUnmounted(() => {
                     :selected="selected === entry.path"
                     :delete-disabled="mutationsBlocked"
                     pad-class="px-5"
-                    :open-file="openFile"
-                    :delete-file="delFile"
+                    @open="openFile"
+                    @remove="delFile"
                   />
                 </template>
                 <section
@@ -804,7 +503,7 @@ onUnmounted(() => {
                     id="config-backup-list"
                     class="backup-file-list"
                   >
-                    <FileRow
+                    <ConfigFileRow
                       v-for="file in backups.backups"
                       :key="file.path"
                       :path="file.path"
@@ -813,8 +512,8 @@ onUnmounted(() => {
                       :selected="selected === file.path"
                       :delete-disabled="mutationsBlocked"
                       pad-class="px-0"
-                      :open-file="openFile"
-                      :delete-file="delFile"
+                      @open="openFile"
+                      @remove="delFile"
                     />
                   </div>
                 </section>
@@ -904,10 +603,14 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div
-              ref="editorHost"
-              class="flex-1 overflow-hidden term-panel"
-            ></div>
+            <ConfigEditor
+              v-if="show && view === 'editor'"
+              :key="selected"
+              ref="editor"
+              :path="selected"
+              @change="changed = true"
+              @error="onEditorError"
+            />
           </div>
         </Transition>
       </div>

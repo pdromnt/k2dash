@@ -7,7 +7,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
 const { videoRef, connected, connecting, error, connect, disconnect } =
   useWebcam()
-const expanded = ref(printer.isPrinting || printer.isPaused)
+const expanded = ref(printer.jobActive)
 let attempted = false
 function autoConnect() {
   if (!isPreview && printer.connected && expanded.value && !attempted) {

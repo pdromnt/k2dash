@@ -210,7 +210,7 @@ function checkSafety() {
   fresh.value = ws.canStartBeltCalibration()
   canTurnOffHeaters.value = ws.canTurnOffBeltHeaters()
   if (phase.value === 'park' && parkRequested.value && !session &&
-      (!printer.isK2Plus || printer.isError || printer.errorCode !== 0 || printer.isPrinting || printer.isPaused)) {
+      (!printer.isK2Plus || printer.isError || printer.errorCode !== 0 || printer.jobActive)) {
     stop('Parking could not be confirmed. Wait until the printer is still and check its display. No calibration write was sent.')
   } else if (session) {
     const safe = fresh.value && ws.connected.value && outputConnected.value

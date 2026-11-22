@@ -1,12 +1,5 @@
-export type BeltModule = 'mdlx' | 'mdly'
-export type BeltCalibrationDirection = 0 | 1 | 2
-
-export interface BeltModuleReadback {
-  module: BeltModule
-  position: number
-  baselineAdc: number
-  loadedAdc: number
-}
+import type { BeltCalibrationDirection, BeltModule, BeltModuleReadback } from './beltCalibrationTypes'
+export type { BeltModule, BeltModuleReadback } from './beltCalibrationTypes'
 
 interface BeltCalibrationTransportOptions {
   send: (gcode: string) => Promise<unknown>

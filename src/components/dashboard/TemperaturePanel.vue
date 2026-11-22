@@ -36,7 +36,7 @@ const heaters = computed(() => [
         </dd>
       </div>
     </dl>
-    <p class="inspector-note">
+    <p class="inspector-note text-right">
       {{
         !printer.connected
           ? 'Waiting for live readings'

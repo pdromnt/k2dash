@@ -185,6 +185,54 @@ describe('native printer transport', () => {
     expect(store.ledState).toBe(false)
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('rejects outstanding reads on socket error and ignores frames from that socket', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    const client = usePrinterWs()
+    client.connect()
+    const original = FakeSocket.instance
+    original.readyState = FakeSocket.OPEN
+    original.fire('open')
+
+    const pending = expect(client.refreshTimelapses()).rejects.toThrow('disconnected')
+    original.fire('error')
+    original.fire('close')
+    await pending
+    expect(client.connected.value).toBe(false)
+    expect(usePrinterStore().connected).toBe(false)
+
+    vi.advanceTimersByTime(2000)
+    const replacement = FakeSocket.instance
+    expect(replacement).not.toBe(original)
+    replacement.readyState = FakeSocket.OPEN
+    replacement.fire('open')
+    original.fire('message', { deviceState: 1, printFileName: 'stale.gcode' })
+    expect(usePrinterStore().printFilename).toBe('')
+    expect(client.connected.value).toBe(true)
+  })
+
+  it('uses a refreshed list to verify a timelapse deletion without a firmware acknowledgment', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const client = usePrinterWs()
+    client.connect()
+    const socket = FakeSocket.instance
+    socket.readyState = FakeSocket.OPEN
+    socket.fire('open')
+    const video = '/timelapse/print.mp4'
+    socket.fire('message', { elapseVideoList: [{ name: 'print.mp4', video }] })
+    socket.sent = []
+
+    const done = client.deleteTimelapse(video)
+    expect(socket.sent).toEqual([
+      { method: 'set', params: { ctrlVideoFiles: { cmd: 'remove', printId: '', file: video } } },
+    ])
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(socket.sent.at(-1)).toEqual({ method: 'get', params: { reqElapseVideoList: 1 } })
+    socket.fire('message', { elapseVideoList: [] })
+    await expect(done).resolves.toBeUndefined()
+    expect(fetch).not.toHaveBeenCalled()
+  })
   it('retains independently delivered filename and layer frames', async () => {
     const { usePrinterWs } = await import('./usePrinterWs')
     const { usePrinterStore } = await import('@/stores/printer')
@@ -202,6 +250,20 @@ describe('native printer transport', () => {
     expect(store.printFilename).toBe('widget.gcode')
     expect(store.currentLayer).toBe(2)
     expect(store.printProgress).toBe(1)
+  })
+
+  it('keeps native case and side fan telemetry distinct across partial frames', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    const printer = usePrinterStore()
+    usePrinterWs().connect()
+    const socket = FakeSocket.instance
+    socket.readyState = FakeSocket.OPEN
+    socket.fire('open')
+    socket.fire('message', { deviceState: 1, caseFanPct: 25, auxiliaryFanPct: 65 })
+    socket.fire('message', { auxiliaryFanPct: 40 })
+    expect(printer.fanCase).toBe(0.25)
+    expect(printer.fanSide).toBe(0.4)
   })
   it('replaces CFS topology, keeps partial updates, and clears sensors with removed units', async () => {
     const { usePrinterWs } = await import('./usePrinterWs')
@@ -482,7 +544,11 @@ describe('belt calibration live interlock', () => {
     expect(printer.beltCalibrationActive.value).toBe(true)
     await expect(printer.sendGcodeCommand('G28')).rejects.toThrow('calibration')
     await expect(printer.startPrint('part.gcode', { source: 'spool' })).rejects.toThrow('calibration')
-    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).resolves.toBe('websocket')
+    const beforeRead = socket.sent.length
+    await lease.send('BELT_MDL_INFO MDL_NAME=mdlx')
+    expect(socket.sent.slice(beforeRead)).toEqual([
+      { method: 'set', params: { gcodeCmd: 'BELT_MDL_INFO MDL_NAME=mdlx' } },
+    ])
     socket.fire('message', { deviceState: 1 })
     expect(printer.beltCalibrationActive.value).toBe(false)
     socket.fire('message', idleCool)
@@ -536,7 +602,11 @@ describe('belt calibration live interlock', () => {
     await monitor.refresh(true)
     await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).rejects.toThrow('not safe')
     expect(lease.beginStep()).toBe(true)
-    await expect(lease.send('BELT_MDL_INFO MDL_NAME=mdlx')).resolves.toBe('websocket')
+    const beforeRead = replacement.sent.length
+    await lease.send('BELT_MDL_INFO MDL_NAME=mdlx')
+    expect(replacement.sent.slice(beforeRead)).toEqual([
+      { method: 'set', params: { gcodeCmd: 'BELT_MDL_INFO MDL_NAME=mdlx' } },
+    ])
   })
 
   it('invalidates a waiting session on an unsafe snapshot, not on a missing snapshot', async () => {

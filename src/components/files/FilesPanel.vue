@@ -2,17 +2,17 @@
 import { computed, ref, onMounted } from 'vue'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
-import { usePrinterStore } from '@/stores/printer'
 import {
   getFileList,
   deleteFile,
   renameFile,
   type FileInfo,
 } from '@/api/moonraker'
-import { uploadFileKlipper4408 } from '@/api/creality'
+import { uploadGcodeFile } from '@/api/creality'
 import PrintDialog from './PrintDialog.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterActionLock } from '@/composables/usePrinterActionLock'
 import {
   fmtSize,
   fmtDate,
@@ -28,7 +28,6 @@ import {
 const props = defineProps<{ compact?: boolean }>()
 const banner = useBannerStore()
 const toast = useToastStore()
-const printer = usePrinterStore()
 const printFile = ref<string | null>(null)
 const search = ref('')
 const visibleFiles = computed(() => {
@@ -42,14 +41,10 @@ const visibleFiles = computed(() => {
   return props.compact ? list.slice(0, 4) : list
 })
 
-const printerWs = usePrinterWs()
-const jobActive = computed(
-  () => printer.isPrinting || printer.isPaused || !printer.connected,
-)
+const { printStarting } = usePrinterWs()
+const lockReason = usePrinterActionLock()
 const loadError = ref('')
 const sort = ref('newest')
-const ACTIONS_LOCKED_TIP =
-  "Can't modify or start G-code files while a print is active"
 
 const files = ref<FileInfo[]>([])
 const uploading = ref(false)
@@ -71,7 +66,7 @@ async function load() {
 }
 
 async function del(f: FileInfo) {
-  if (jobActive.value) return
+  if (lockReason.value) return
   const confirmed = await requestConfirmation({
     title: 'Delete G-code file?',
     message: 'This permanently removes the file from the printer.',
@@ -79,7 +74,7 @@ async function del(f: FileInfo) {
     confirmLabel: 'Delete permanently',
     tone: 'danger',
   })
-  if (!confirmed || jobActive.value) return
+  if (!confirmed || lockReason.value) return
   try {
     await deleteFile(f.path)
     toast.show(`Deleted ${f.path}`)
@@ -90,7 +85,7 @@ async function del(f: FileInfo) {
 }
 
 async function rename(f: FileInfo) {
-  if (jobActive.value) return
+  if (lockReason.value) return
   const currentName = splitPath(f.path)
   const entered = await requestTextInput({
     title: 'Rename G-code file',
@@ -100,7 +95,7 @@ async function rename(f: FileInfo) {
     initialValue: currentName,
     confirmLabel: 'Rename file',
   })
-  if (entered === null || jobActive.value) return
+  if (entered === null || lockReason.value) return
 
   const newName = entered.trim()
   if (!newName || newName === currentName) return
@@ -128,19 +123,19 @@ async function rename(f: FileInfo) {
 }
 
 function pr(f: FileInfo) {
-  if (jobActive.value || !printer.connected) return
+  if (lockReason.value) return
   printFile.value = f.path
 }
 
 async function up() {
-  if (jobActive.value || uploading.value) return
+  if (lockReason.value || uploading.value) return
   const f = inp.value?.files?.[0]
   if (!f) return
   selectedFile.value = f
   uploading.value = true
   uploadProgress.value = 0
   try {
-    await uploadFileKlipper4408(f, (p) => (uploadProgress.value = p))
+    await uploadGcodeFile(f, (p) => (uploadProgress.value = p))
     toast.show(`Uploaded ${f.name}`)
     uploadProgress.value = 100
     await load()
@@ -189,7 +184,7 @@ onMounted(load)
       </select>
       <label
         class="btn btn-primary upload-button"
-        :class="{ 'is-disabled': jobActive || uploading }"
+        :class="{ 'is-disabled': Boolean(lockReason) || uploading }"
         ><AppIcon name="upload" :size="16" />{{
           uploading ? 'Uploading…' : 'Upload G-code'
         }}<input
@@ -197,7 +192,7 @@ onMounted(load)
           type="file"
           accept=".gcode,.g,.gco"
           class="sr-only"
-          :disabled="jobActive || uploading"
+          :disabled="Boolean(lockReason) || uploading"
           @change="up"
       /></label>
     </div>
@@ -211,16 +206,10 @@ onMounted(load)
         aria-label="Upload progress"
       />
     </div>
-    <p v-if="printerWs.printStarting.value" class="inline-notice" role="status">
+    <p v-if="printStarting" class="inline-notice" role="status">
       Print request sent. Waiting for the printer to report its state.
     </p>
-    <p v-else-if="jobActive && !compact" class="file-lock-note">
-      {{
-        printer.connected
-          ? 'Print, rename, delete, and upload actions are locked during a print.'
-          : 'Reconnect to the printer to modify files or start a job.'
-      }}
-    </p>
+    <p v-else-if="lockReason && !compact" class="file-lock-note">{{ lockReason }}</p>
     <div v-if="loadError" class="panel-empty" role="alert">
       <AppIcon name="files" :size="26" /><strong>Could not load files</strong>
       <p>{{ loadError }}</p>
@@ -259,23 +248,23 @@ onMounted(load)
         <div class="file-actions">
           <button
             class="btn btn-sm"
-            :disabled="jobActive || printerWs.printStarting.value"
-            :title="jobActive ? ACTIONS_LOCKED_TIP : 'Set up this print'"
+            :disabled="Boolean(lockReason)"
+            :title="lockReason || 'Set up this print'"
             @click="pr(f)"
           >
             <AppIcon name="play" :size="13" />Print</button
           ><template v-if="!compact"
             ><button
               class="btn btn-ghost btn-sm"
-              :disabled="jobActive || !f.permissions.includes('w')"
-              :title="jobActive ? ACTIONS_LOCKED_TIP : 'Rename file'"
+              :disabled="Boolean(lockReason) || !f.permissions.includes('w')"
+              :title="lockReason || 'Rename file'"
               @click="rename(f)"
             >
               Rename</button
             ><button
               class="btn btn-ghost btn-sm destructive-action"
-              :disabled="jobActive || !f.permissions.includes('w')"
-              :title="jobActive ? ACTIONS_LOCKED_TIP : 'Delete file'"
+              :disabled="Boolean(lockReason) || !f.permissions.includes('w')"
+              :title="lockReason || 'Delete file'"
               @click="del(f)"
             >
               <AppIcon name="trash" :size="15" /><span>Delete</span>

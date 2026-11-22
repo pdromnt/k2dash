@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterActionLock } from '@/composables/usePrinterActionLock'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
@@ -11,17 +12,13 @@ import BeltModuleCalibrationLive from './BeltModuleCalibrationLive.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 const printer = usePrinterStore()
 const ws = usePrinterWs()
-const { blocked: restartBlocked, pending: restartPending, restart } = usePrinterRestart()
+const { blocked: restartBlocked, restart } = usePrinterRestart()
 const banner = useBannerStore()
 const toast = useToastStore()
 const busy = ref(false)
 const distance = ref(10)
-const blocked = computed(
-  () => printer.isPrinting || printer.isPaused || !printer.connected || ws.beltCalibrationActive.value || restartPending.value,
-)
-const lockReason = computed(() =>
-  !printer.connected ? 'Printer disconnected' : restartPending.value ? 'Restart requested' : ws.beltCalibrationActive.value ? 'Belt calibration in progress' : 'Locked while printing',
-)
+const lockReason = usePrinterActionLock()
+const blocked = computed(() => Boolean(lockReason.value))
 const targets = reactive({ nozzle: '200', bed: '60', chamber: '0' })
 const heaters = computed(() => [
   {
@@ -345,7 +342,7 @@ async function confirmFirmwareRestart() {
       <div class="firmware-restart-row">
         <p>Reload Klipper and reset the controller boards without power-cycling the printer.</p>
         <button class="btn btn-warn" type="button" :disabled="restartBlocked || busy" @click="confirmFirmwareRestart">
-          {{ restartPending ? 'Restart requested…' : 'Firmware restart' }}
+          {{ printer.restartPending ? 'Restart requested…' : 'Firmware restart' }}
         </button>
       </div>
     </section>

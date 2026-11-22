@@ -1,18 +1,12 @@
 import { K2_MODEL_ID, K2_PRO_MODEL_ID } from './crealityProtocol'
 
-export type BeltModule = 'mdlx' | 'mdly'
-
-export interface BeltModuleReadback {
-  module: BeltModule
-  position: number
-  baselineAdc: number
-  loadedAdc: number
-}
+import type { BeltCalibrationDirection, BeltModule, BeltModuleReadback } from './beltCalibrationTypes'
+export type { BeltModule, BeltModuleReadback } from './beltCalibrationTypes'
 
 export interface BeltWriteStep {
   module: BeltModule
   side: 'Right' | 'Left'
-  direction: 0 | 1 | 2
+  direction: BeltCalibrationDirection
   phase: 'reset' | 'baseline' | 'loaded' | 'finish'
   title: string
   instruction: string

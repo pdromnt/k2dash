@@ -80,7 +80,7 @@ On a **K2 Plus**, go to **Controls → Maintenance → [EXPERIMENTAL] Belt Tensi
 ## Development
 
 - **Try it without a printer:** open [the isolated preview](http://localhost:5173/?preview=idle) with the dev server running. [See available preview states](docs/printer-setup.md#safe-development-previews).
-- **Check changes:** run `npm test`, `npm run build`, and `npx eslint src/`. Use `npm run preview` to serve a local production build.
+- **Check changes:** run `npm run check` for tests, lint, type-checking, and a production build. Use `npm run preview` to serve that build locally.
 - **Reference:** [connection settings and service ports](docs/printer-setup.md#connection-reference), [product constraints](PRODUCT.md), and [design system](DESIGN.md). Use previews for destructive workflows; a test or successful deployment isn’t proof of printer behavior.
 
 ---

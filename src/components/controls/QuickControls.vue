@@ -16,7 +16,7 @@ const fans = [
 const values = ref([0, 0, 0]),
   busy = ref(false)
 watch(
-  () => [printer.fanPart, printer.fanAux, printer.fanChamber],
+  () => [printer.fanPart, printer.fanCase, printer.fanSide],
   (v) => (values.value = v.map((x) => Math.round(x * 100))),
   { immediate: true },
 )
@@ -24,7 +24,7 @@ async function fan(type: CrealityFan, i: number) {
   try {
     await ws.sendGcodeCommand(fanGcode(type, values.value[i]))
   } catch (e) {
-    values.value = [printer.fanPart, printer.fanAux, printer.fanChamber].map(
+    values.value = [printer.fanPart, printer.fanCase, printer.fanSide].map(
       (v) => Math.round(v * 100),
     )
     banner.show(

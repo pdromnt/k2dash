@@ -5,11 +5,11 @@
  * composables/useWebcam.ts.
  */
 
-export const HOST = import.meta.env.VITE_PRINTER_HOST || '127.0.0.1'
-export const API_PORT = import.meta.env.VITE_API_PORT || '7125'
-export const UPLOAD_PORT = import.meta.env.VITE_UPLOAD_PORT || '80'
-export const WEBCAM_PORT = import.meta.env.VITE_WEBCAM_PORT || '8000'
-export const WS_PORT = '9999'
+const HOST = import.meta.env.VITE_PRINTER_HOST || '127.0.0.1'
+const API_PORT = import.meta.env.VITE_API_PORT || '7125'
+const UPLOAD_PORT = import.meta.env.VITE_UPLOAD_PORT || '80'
+const WEBCAM_PORT = import.meta.env.VITE_WEBCAM_PORT || '8000'
+const WS_PORT = '9999'
 
 const proxied = import.meta.env.DEV || import.meta.env.VITE_PRINTER_PROXY === 'true'
 

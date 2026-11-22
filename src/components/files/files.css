@@ -1,0 +1,211 @@
+@layer components {
+  .files-panel > .section-heading {
+    padding: 17px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .file-toolbar {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+  }
+  .file-tools {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 16px 18px;
+  }
+  .search-field {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 11px;
+    height: 38px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    flex: 1;
+    min-width: 0;
+    color: var(--text-mute);
+  }
+  .search-field:focus-within {
+    border-color: var(--green);
+  }
+  .search-field input {
+    border: 0;
+    background: transparent;
+    min-width: 0;
+    width: 100%;
+    outline: none;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .search-field input::placeholder {
+    color: var(--text-mute);
+  }
+  .sort-select {
+    width: 140px;
+    font-size: 12px;
+  }
+  .file-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .file-list > li {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 16px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .file-list > li:first-child {
+    border-top: 0;
+  }
+  .file-list > li:hover {
+    background: #ffffff03;
+  }
+  .file-icon {
+    display: flex;
+    color: #a1afbe;
+  }
+  .file-identity {
+    min-width: 0;
+    flex: 1;
+  }
+  .file-identity strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .file-identity > span {
+    font-size: 11px;
+    display: block;
+    color: var(--text-mute);
+    margin-top: 6px;
+  }
+  .file-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .destructive-action {
+    color: var(--red);
+    margin-left: 10px;
+  }
+  .file-lock-note {
+    font-size: 11px;
+    line-height: 1.8;
+    color: var(--amber);
+    padding: 0 18px 12px;
+  }
+  .panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    padding: 38px 20px;
+    color: var(--text-mute);
+  }
+  .panel-empty strong {
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .panel-empty p {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .file-skeleton {
+    padding: 5px 18px;
+  }
+  .file-skeleton > div {
+    height: 65px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .file-skeleton > div:first-child {
+    border: 0;
+  }
+  .file-skeleton span {
+    width: 55%;
+    height: 10px;
+    border-radius: 3px;
+    background: #303741;
+  }
+  .file-skeleton span + span {
+    width: 12%;
+    margin-left: auto;
+  }
+  .upload-progress {
+    padding: 0 18px 16px;
+  }
+  .upload-progress > span {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+  }
+  .files-panel > .inline-notice {
+    margin: 12px 18px;
+  }
+}
+
+@media (max-width: 780px) {
+  .files-panel > .section-heading {
+    padding: 15px;
+  }
+  .file-tools {
+    padding: 15px;
+    flex-wrap: wrap;
+  }
+  .search-field {
+    flex-basis: 100%;
+  }
+  .sort-select {
+    flex: 1;
+    min-width: 115px;
+  }
+  .upload-button {
+    min-height: 38px;
+  }
+  .file-list > li {
+    padding: 15px;
+    flex-wrap: wrap;
+    gap: 11px;
+  }
+  .file-actions {
+    margin-left: 31px;
+  }
+  .files-compact .file-actions {
+    margin-left: 0;
+  }
+  .file-identity strong {
+    font-size: 12px;
+  }
+  .file-identity > span {
+    font-size: 10px;
+  }
+  .file-identity {
+    min-width: 120px;
+  }
+  .file-actions .btn {
+    min-height: 36px;
+  }
+  .destructive-action {
+    margin-left: 6px;
+  }
+  .file-lock-note {
+    padding: 0 15px 12px;
+  }
+  .file-tools .upload-button {
+    font-size: 11px;
+  }
+}

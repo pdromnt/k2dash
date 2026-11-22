@@ -2,27 +2,21 @@
 import { computed, defineAsyncComponent, onMounted } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinterWs } from '@/composables/usePrinterWs'
-import { usePrinter } from '@/composables/usePrinter'
+import { usePrintThumbnail } from '@/composables/usePrintThumbnail'
 import { isPreview, previewState } from '@/utils/preview'
 import AppBanner from './AppBanner.vue'
 import PrinterRestartNotice from './PrinterRestartNotice.vue'
 import { restartNotice } from '@/composables/usePrinterRestart'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { workspacePages } from '@/workspacePages'
 import PrintActions from '@/components/controls/PrintActions.vue'
 const ConfigModal = defineAsyncComponent(
   () => import('@/components/config/ConfigModal.vue'),
 )
 const printer = usePrinterStore()
 const printerWs = usePrinterWs()
-usePrinter()
-const nav = [
-  { path: '/', name: 'Overview', icon: 'overview' },
-  { path: '/files', name: 'Files', icon: 'files' },
-  { path: '/printer', name: 'Controls', icon: 'printer' },
-  { path: '/activity', name: 'Activity', icon: 'activity' },
-  { path: '/console', name: 'Console', icon: 'console' },
-]
+usePrintThumbnail()
 const status = computed(() =>
   !printer.connected
     ? 'Disconnected'
@@ -34,7 +28,6 @@ const status = computed(() =>
           ? 'Needs attention'
           : 'Ready',
 )
-const host = import.meta.env.VITE_PRINTER_HOST || 'Not configured'
 onMounted(() => printerWs.connect())
 function previewUrl(state: string) {
   return `${window.location.pathname}?preview=${state}${window.location.hash}`
@@ -51,10 +44,7 @@ function previewUrl(state: string) {
         ></RouterLink
       >
       <span class="header-divider" />
-      <div class="machine-name">
-        <strong>{{ printer.modelName }}</strong
-        ><span>{{ isPreview ? 'Sample data' : host }}</span>
-      </div>
+      <span class="machine-name">{{ printer.modelName }}</span>
       <div class="header-actions">
         <span
           class="connection-state"
@@ -68,12 +58,12 @@ function previewUrl(state: string) {
     </header>
     <nav class="app-navigation" aria-label="Main navigation">
       <RouterLink
-        v-for="item in nav"
+        v-for="item in workspacePages"
         :key="item.path"
         :to="item.path"
         :class="{ 'nav-active': $route.path === item.path }"
         ><AppIcon :name="item.icon" :size="17" /><span>{{
-          item.name
+          item.label
         }}</span></RouterLink
       ><a
         class="nav-source"

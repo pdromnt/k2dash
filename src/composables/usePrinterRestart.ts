@@ -1,13 +1,12 @@
-import { computed, readonly, ref, watch } from 'vue'
+import { computed, readonly, ref, toRef, watch } from 'vue'
 import { getKlipperState, restartKlipper } from '@/api/moonraker'
-import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterActionLock } from './usePrinterActionLock'
 import { usePrinterStore } from '@/stores/printer'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
 import { isPreview } from '@/utils/preview'
 import { errMsg } from '@/utils/format'
 
-const pending = ref(false)
 const notice = ref<{ state: 'restarting' | 'unconfirmed'; detail?: string } | null>(null)
 const restartErrorSeen = ref(false)
 const RESTART_WINDOW_MS = 30_000
@@ -23,14 +22,11 @@ export function dismissRestartNotice() {
 
 export function usePrinterRestart() {
   const printer = usePrinterStore()
-  const ws = usePrinterWs()
+  const pending = toRef(printer, 'restartPending')
+  const lock = usePrinterActionLock()
   const banner = useBannerStore()
   const toast = useToastStore()
-  const blocked = computed(() =>
-    isPreview || pending.value || !printer.connected || ws.printStarting.value ||
-    ws.beltCalibrationActive.value || printer.isPrinting || printer.isPaused ||
-    printer.state === 'unknown',
-  )
+  const blocked = computed(() => isPreview || Boolean(lock.value))
 
   async function restart(kind: 'host' | 'firmware') {
     const prefix = kind === 'host' ? 'Config saved, but restart' : 'Firmware restart'

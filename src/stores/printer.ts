@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { CfsSlot, CfsUnit } from '@/printer/cfs'
 import { K2_PLUS_MODEL_ID, printerModelName } from '@/printer/crealityProtocol'
-export type { CfsSlot, CfsUnit } from '@/printer/cfs'
 
 export type PrinterState =
   | 'unknown'
@@ -15,6 +14,10 @@ export type PrinterState =
   | 'error'
   | 'cancelled'
   | 'shutdown'
+
+export function isActiveJobState(state: PrinterState): boolean {
+  return state === 'printing' || state === 'preparing' || state === 'paused'
+}
 
 /**
  * Shape of an entry in the K2 Plus `elapseVideoList` WS payload
@@ -62,15 +65,15 @@ export const usePrinterStore = defineStore('printer', () => {
   const chamberTemp = ref(0)
   const chamberTarget = ref(0)
   const fanPart = ref(0)
-  const fanAux = ref(0)
-  const fanChamber = ref(0)
+  const fanCase = ref(0)
+  const fanSide = ref(0)
   const ledState = ref(false)
   const connected = ref(false)
   const filamentEstimated = ref(0)
   const filamentEstimatedWeight = ref(0)
   const printLeftTime = ref(0)
   const thumbnailUrl = ref('')
-  const wsActive = ref(false)
+  const restartPending = ref(false)
   const cfsConnected = ref<boolean | null>(null)
   const cfsUnits = ref<CfsUnit[]>([])
   const spoolSlots = ref<CfsSlot[]>([])
@@ -97,27 +100,25 @@ export const usePrinterStore = defineStore('printer', () => {
     () => state.value === 'printing' || state.value === 'preparing',
   )
   const isPaused = computed(() => state.value === 'paused')
-  const isReady = computed(() => state.value === 'ready')
+  const jobActive = computed(() => isActiveJobState(state.value))
   const isError = computed(
     () => state.value === 'error' || state.value === 'shutdown',
   )
 
-  // Whenever the printer leaves an active-job state, wipe all the job-scoped
-  // data so a stale value from a previous run can't leak into the UI.
-  const JOB_STATES = new Set<PrinterState>(['printing', 'preparing', 'paused'])
+  function clearPrintJob() {
+    printProgress.value = 0
+    printFilename.value = ''
+    currentLayer.value = 0
+    totalLayers.value = 0
+    printDuration.value = 0
+    printLeftTime.value = 0
+    filamentEstimated.value = 0
+    filamentEstimatedWeight.value = 0
+    filamentUsed.value = null
+    thumbnailUrl.value = ''
+  }
   watch(state, (s) => {
-    if (!JOB_STATES.has(s)) {
-      printProgress.value = 0
-      printFilename.value = ''
-      currentLayer.value = 0
-      totalLayers.value = 0
-      printDuration.value = 0
-      printLeftTime.value = 0
-      filamentEstimated.value = 0
-      filamentEstimatedWeight.value = 0
-      filamentUsed.value = null
-      thumbnailUrl.value = ''
-    }
+    if (!isActiveJobState(s)) clearPrintJob()
   })
 
   return {
@@ -137,8 +138,8 @@ export const usePrinterStore = defineStore('printer', () => {
     chamberTemp,
     chamberTarget,
     fanPart,
-    fanAux,
-    fanChamber,
+    fanCase,
+    fanSide,
     ledState,
     connected,
     filamentEstimated,
@@ -154,12 +155,13 @@ export const usePrinterStore = defineStore('printer', () => {
     errorCode,
     errorMessage,
     dismissedErrorCode,
-    wsActive,
+    restartPending,
     position,
     filamentUsed,
     isPrinting,
     isPaused,
-    isReady,
+    jobActive,
+    clearPrintJob,
     isError,
   }
 })

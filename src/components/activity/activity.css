@@ -1,0 +1,50 @@
+@layer components {
+  .panel-bleed {
+    margin-left: -22px;
+    margin-right: -22px;
+  }
+  .panel-row {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  .row-title {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row-meta {
+    font-size: 11px;
+    color: var(--text-mute);
+    line-height: 1.8;
+    margin-top: 5px;
+    overflow-wrap: anywhere;
+  }
+  .list-row-hover:hover {
+    background: #ffffff03;
+  }
+  .empty-state {
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--text-mute);
+  }
+  .activity-grid {
+    display: grid;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 780px) {
+  .panel-bleed {
+    margin-left: -18px;
+    margin-right: -18px;
+  }
+  .panel-row {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .row-meta {
+    font-size: 10px;
+  }
+}

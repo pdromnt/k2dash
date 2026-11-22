@@ -8,10 +8,10 @@ import {
 } from '@/api/moonraker'
 import { useBannerStore } from '@/stores/banner'
 import { useToastStore } from '@/stores/toast'
-import { usePrinterStore } from '@/stores/printer'
+import { isActiveJobState, usePrinterStore } from '@/stores/printer'
 import { fmtDur, fmtDate, fmtFilamentMeters, errMsg } from '@/utils/format'
 import { requestConfirmation } from '@/composables/useConfirmDialog'
-import { findActiveHistoryJobId } from '@/utils/history'
+import { findActiveHistoryJobId } from './history'
 
 const jobs = ref<HistoryJob[]>([])
 const loading = ref(false)
@@ -20,7 +20,7 @@ const banner = useBannerStore()
 const toast = useToastStore()
 const printer = usePrinterStore()
 const printerHasActiveJob = computed(
-  () => printer.isPrinting || printer.isPaused,
+  () => printer.jobActive,
 )
 const activeHistoryJobId = computed(() =>
   findActiveHistoryJobId(
@@ -116,14 +116,8 @@ onMounted(load)
 watch(
   () => printer.state,
   (newState, oldState) => {
-    const wasActive =
-      oldState === 'printing' ||
-      oldState === 'preparing' ||
-      oldState === 'paused'
-    const isActive =
-      newState === 'printing' ||
-      newState === 'preparing' ||
-      newState === 'paused'
+    const wasActive = isActiveJobState(oldState)
+    const isActive = isActiveJobState(newState)
     const isInactive =
       newState === 'complete' ||
       newState === 'cancelled' ||

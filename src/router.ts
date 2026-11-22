@@ -1,11 +1,11 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { workspacePages } from './workspacePages'
 
 export default createRouter({
   history: createWebHashHistory(),
-  routes: [
-    ...['/', '/files', '/printer', '/activity', '/console'].map((path) => ({
-      path,
-      component: () => import('@/views/DashboardView.vue'),
-    })),
-  ],
+  routes: workspacePages.map(({ id, path }) => ({
+    name: id,
+    path,
+    component: () => import('@/views/DashboardView.vue'),
+  })),
 })

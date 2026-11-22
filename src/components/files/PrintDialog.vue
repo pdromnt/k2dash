@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { usePrinterStore } from '@/stores/printer'
 import { usePrinterWs } from '@/composables/usePrinterWs'
+import { usePrinterActionLock } from '@/composables/usePrinterActionLock'
 import { useToastStore } from '@/stores/toast'
 import {
   displayFilamentColor,
@@ -35,12 +36,10 @@ const slotGroups = computed(() =>
     }))
     .filter((unit) => unit.slots.length),
 )
-const jobActive = computed(() => printer.isPrinting || printer.isPaused)
+const lockReason = usePrinterActionLock()
 const ready = computed(
   () =>
-    printer.connected &&
-    !jobActive.value &&
-    !ws.printStarting.value &&
+    !lockReason.value &&
     !busy.value &&
     (source.value === 'spool' ||
       (!loading.value &&
@@ -212,9 +211,7 @@ onMounted(() => {
         starting.
       </p>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-      <p v-if="jobActive" class="form-error">
-        A print is already running. Wait until it finishes.
-      </p>
+      <p v-if="lockReason" class="form-error">{{ lockReason }}</p>
       <div class="dialog-footer">
         <button
           type="button"
