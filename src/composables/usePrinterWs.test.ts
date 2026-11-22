@@ -98,6 +98,51 @@ describe('native printer transport', () => {
       { id: 'T1B', type: 'PETG', color: '#000000' },
     ])
   })
+
+  it('joins partial usage and slicer metadata without borrowing from another job', async () => {
+    const { usePrinterWs } = await import('./usePrinterWs')
+    const { usePrinterStore } = await import('@/stores/printer')
+    usePrinterWs().connect()
+    const socket = FakeSocket.instance
+    const store = usePrinterStore()
+    socket.readyState = 1
+    socket.fire('open')
+
+    socket.fire('message', { deviceState: 1, usedMaterialLength: 28400 })
+    socket.fire('message', { printFileName: 'models/widget.gcode' })
+    socket.fire('message', {
+      retGcodeFileInfo2: [{
+        path: '/mnt/UDISK/printer_data/gcodes/models/widget.gcode',
+        name: 'widget.gcode',
+        materialUsed: '37900, 5000',
+        filamentWeight: '114, 15',
+      }],
+    })
+    expect(store.filamentUsed).toBe(28400)
+    expect(store.filamentEstimated).toBe(42900)
+    expect(store.filamentEstimatedWeight).toBe(129)
+
+    socket.fire('message', { printFileName: 'another.gcode' })
+    expect(store.filamentUsed).toBeNull()
+    expect(store.filamentEstimated).toBe(0)
+    expect(store.filamentEstimatedWeight).toBe(0)
+    socket.fire('message', { usedMaterialLength: 0 })
+    socket.fire('message', {
+      retGcodeFileInfo2: [{
+        name: 'another.gcode',
+        materialUsed: 19000,
+        filamentWeight: '10, unknown',
+      }],
+    })
+    expect(store.filamentUsed).toBe(0)
+    expect(store.filamentEstimated).toBe(19000)
+    expect(store.filamentEstimatedWeight).toBe(0)
+
+    socket.fire('message', { deviceState: 0, usedMaterialLength: 19000 })
+    expect(store.filamentUsed).toBeNull()
+    expect(store.filamentEstimated).toBe(0)
+  })
+
   it('sends CFS mapping before starting and blocks repeated starts before status arrives', async () => {
     const { usePrinterWs } = await import('./usePrinterWs')
     const ws = usePrinterWs()

@@ -10,8 +10,12 @@ import {
 } from '@/utils/format'
 import PrintActions from '@/components/controls/PrintActions.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { estimateFilamentLeft } from '@/utils/filamentUsage'
 const printer = usePrinterStore()
 const active = computed(() => printer.isPrinting || printer.isPaused)
+const filamentLeft = computed(() =>
+  estimateFilamentLeft(printer.filamentUsed, printer.filamentEstimated, printer.filamentEstimatedWeight),
+)
 const stateLabel = computed(() =>
   !printer.connected
     ? 'Printer disconnected'
@@ -149,9 +153,20 @@ onUnmounted(() => clearTimeout(retry))
           }}<span> / {{ printer.totalLayers || '—' }}</span>
         </dd>
       </div>
-      <div>
+      <div class="job-filament">
         <dt>Filament used</dt>
-        <dd>{{ fmtFilamentMeters(printer.filamentUsed) }}</dd>
+        <dd>
+          {{ printer.filamentUsed === null ? '—' : fmtFilamentMeters(printer.filamentUsed) }}
+          <span v-if="printer.filamentEstimated > 0">/ ~{{ fmtFilamentMeters(printer.filamentEstimated) }}</span>
+          <span v-if="filamentLeft" class="job-filament-detail">
+            <template v-if="filamentLeft.mm > 0">
+              ~{{ fmtFilamentMeters(filamentLeft.mm) }} left<span v-if="filamentLeft.grams !== null"> · ~{{ Math.round(filamentLeft.grams) }}&nbsp;g</span>
+            </template>
+            <template v-else>
+              {{ (printer.filamentUsed ?? 0) > printer.filamentEstimated ? 'Over estimate' : 'Estimate reached' }}
+            </template>
+          </span>
+        </dd>
       </div>
     </dl>
     <div v-else class="idle-status">

@@ -91,7 +91,7 @@ export const usePrinterStore = defineStore('printer', () => {
   }
   const timelapseFiles = ref<TimelapseFile[]>([])
   const position = ref({ x: 0, y: 0, z: 0 })
-  const filamentUsed = ref(0)
+  const filamentUsed = ref<number | null>(null)
 
   const isPrinting = computed(
     () => state.value === 'printing' || state.value === 'preparing',
@@ -115,7 +115,7 @@ export const usePrinterStore = defineStore('printer', () => {
       printLeftTime.value = 0
       filamentEstimated.value = 0
       filamentEstimatedWeight.value = 0
-      filamentUsed.value = 0
+      filamentUsed.value = null
       thumbnailUrl.value = ''
     }
   })

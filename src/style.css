@@ -542,6 +542,10 @@ textarea {
     color: var(--text-mute);
     font-weight: 400;
   }
+  .job-filament-detail {
+    display: block;
+    margin-top: 3px;
+  }
   .camera-panel {
     padding: 16px;
   }
@@ -1723,6 +1727,7 @@ textarea {
     min-height: 38px;
   }
   .job-metrics {
+    grid-template-columns: 0.9fr 1fr 1.4fr;
     gap: 8px;
   }
   .job-metrics dt {

@@ -234,6 +234,8 @@ function connect() {
       printDuration: 9240,
       printLeftTime: 10860,
       filamentUsed: 28400,
+      filamentEstimated: 42900,
+      filamentEstimatedWeight: 129,
       fanPart: 0.4,
       ledState: true,
       cfsConnected: materials.units.length > 0,
@@ -438,9 +440,12 @@ function parseStatus(msg: Record<string, unknown>) {
   // 100%). Match CrealityPrint and only clamp malformed firmware values.
   if (pp !== undefined) store.printProgress = normalizeCrealityProgress(pp)
   if (typeof msg.printFileName === 'string') {
-    store.printFilename = normalizeGcodePath(msg.printFileName)
-    if (store.printFilename && fileList.value.length)
+    const filename = normalizeGcodePath(msg.printFileName)
+    if (filename !== store.printFilename) {
+      if (store.printFilename) store.filamentUsed = null
+      store.printFilename = filename
       matchEstimatedData(fileList.value)
+    }
   }
   const pjt = n(msg.printJobTime)
   if (pjt !== undefined) store.printDuration = pjt
@@ -454,7 +459,7 @@ function parseStatus(msg: Record<string, unknown>) {
   const tl = n(msg.TotalLayer)
   if (tl !== undefined) store.totalLayers = normalizeCrealityLayer(tl)
   const fu = n(msg.usedMaterialLength)
-  if (fu !== undefined) store.filamentUsed = fu
+  if (isActive && fu !== undefined && fu >= 0) store.filamentUsed = fu
 
   const mfp = n(msg.modelFanPct)
   if (mfp !== undefined) store.fanPart = mfp / 100
@@ -499,6 +504,9 @@ function clearPrintJob() {
   store.currentLayer = 0
   store.totalLayers = 0
   store.thumbnailUrl = ''
+  store.filamentUsed = null
+  store.filamentEstimated = 0
+  store.filamentEstimatedWeight = 0
   store.errorCode = 0
   store.errorMessage = ''
 }
@@ -518,7 +526,7 @@ function parseFileList(info: unknown) {
   if (!files) return
 
   fileList.value = files
-  if (files.length) matchEstimatedData(files)
+  matchEstimatedData(files)
 }
 
 function parseTimelapseList(info: unknown) {
@@ -547,32 +555,23 @@ function parseTimelapseList(info: unknown) {
   store.timelapseFiles = files
 }
 
+function sumFilamentMetadata(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? value : 0
+  if (typeof value !== 'string') return 0
+  const parts = value.split(',').map((part) => part.trim() ? Number(part) : NaN)
+  const total = parts.reduce((sum, part) => sum + part, 0)
+  return Number.isFinite(total) && parts.every((part) => part >= 0) ? total : 0
+}
+
+function findNativeFile(files: Array<Record<string, unknown>>, path: string) {
+  return files.find((file) => normalizeGcodePath(String(file.path || file.name || '')) === path)
+}
+
 function matchEstimatedData(files: Array<Record<string, unknown>>) {
   const store = usePrinterStore()
-  if (!store.printFilename || !files.length) return
-  for (const f of files) {
-    const name = typeof f.name === 'string' ? f.name : ''
-    if (
-      name &&
-      normalizeGcodePath(name) === normalizeGcodePath(store.printFilename)
-    ) {
-      if (typeof f.materialUsed === 'string')
-        store.filamentEstimated = f.materialUsed
-          .split(',')
-          .map(Number)
-          .filter(Number.isFinite)
-          .reduce((a, b) => a + b, 0)
-      if (typeof f.filamentWeight === 'string') {
-        const weights = f.filamentWeight
-          .split(',')
-          .map((w) => parseFloat(w.trim()))
-          .filter((w) => !isNaN(w))
-        const total = weights.reduce((a, b) => a + b, 0)
-        if (total > 0) store.filamentEstimatedWeight = total
-      }
-      break
-    }
-  }
+  const file = store.printFilename ? findNativeFile(files, store.printFilename) : undefined
+  store.filamentEstimated = sumFilamentMetadata(file?.materialUsed)
+  store.filamentEstimatedWeight = sumFilamentMetadata(file?.filamentWeight)
 }
 
 export function usePrinterWs() {
@@ -751,11 +750,7 @@ export function usePrinterWs() {
       { method: 'get', params: { reqGcodeFile: 1, reqGcodeList: 1 } },
       (msg) => Array.isArray(msg.retGcodeFileInfo2),
     )
-    const file = fileList.value.find(
-      (f) =>
-        normalizeGcodePath(String(f.path || f.name || '')) ===
-        normalizeGcodePath(path),
-    )
+    const file = findNativeFile(fileList.value, normalizeGcodePath(path))
     return file ? parsePrintFilaments(file) : []
   }
 
